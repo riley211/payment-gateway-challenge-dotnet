@@ -42,13 +42,13 @@ Items are ticked once they are implemented and covered by a test.
 - [x] No real database. The in-memory repository from the template stands in for storage.
 
 ### Documentation
-- [ ] Key design considerations and assumptions are documented (this folder, plus the root README)
+- [x] Key design considerations and assumptions are documented (this folder, plus the root README)
 
 ### Implementation considerations
 - [x] Compiles
-- [ ] Covered by automated tests
-- [ ] Simple and maintainable, not over-engineered
-- [ ] API design and architecture focus on the functional requirements
+- [x] Covered by automated tests: 71 tests, mapped to requirements below
+- [x] Simple and maintainable, not over-engineered: one API project, the template's structure kept, framework features before libraries
+- [x] API design and architecture focus on the functional requirements
 
 ### Additional non-functional requirements
 These aren't in the brief. They are the properties a payment system needs, so we hold ourselves to them.
@@ -57,6 +57,21 @@ These aren't in the brief. They are the properties a payment system needs, so we
 - [x] Production evolution to a queue-based design is documented
 - [x] Runs in Docker (gateway + bank simulator via docker compose); see document 03
 - [x] Observable: structured logs, health check, traces and metrics; see document 03
+
+### Where each requirement is tested
+
+| Requirement | Tests |
+|---|---|
+| Authorized / Declined | `ProcessPaymentTests.AuthorizesAPaymentTheBankApproves`, `.DeclinesAPaymentTheBankRefuses`; `BankSimulatorIntegrationTests.AuthorizesACardTheBankApproves`, `.DeclinesACardTheBankRefuses` |
+| Rejected without calling the bank | `ProcessPaymentTests.RejectsAnInvalidPaymentWithoutCallingTheBank`, `.RejectsAnExpiredCard`, `.RejectsAFieldThatIsNotANumber` |
+| Card number, expiry, currency, amount and CVV rules | `PostPaymentRequestValidationTests`: every rule at its boundaries, for example 13/14/19/20 digits, this month vs last month, CVV `012` |
+| Response fields, last four digits only | `ProcessPaymentTests.AuthorizesAPaymentTheBankApproves`, `.NeverReturnsTheFullCardNumberOrCvv`; `PaymentsControllerTests.RetrievesAPaymentSuccessfully` (leading zeros kept) |
+| Retrieve a payment, 404 when unknown | `ProcessPaymentTests.StoresThePaymentSoItCanBeRetrieved`; `PaymentsControllerTests.Returns404IfPaymentNotFound` |
+| Bank request format and response mapping | `BankSimulatorClientTests.PostsThePaymentAsSnakeCaseJson`, `.ReturnsTheBanksDecision`; `BankPaymentRequestTests.FormatsTheExpiryAsMonthAndYear` |
+| Bank unavailable returns 502 and stores nothing | `BankSimulatorClientTests.ThrowsWhenTheBankDoesNotSucceed`, `.ThrowsWhenTheBankCannotBeReached`, `.ThrowsWhenTheBankTimesOut`; `ProcessPaymentTests.Returns502AndStoresNothingWhenTheBankIsUnavailable`; `BankSimulatorIntegrationTests.Returns502WhenTheBankIsUnavailable` |
+| Storage safe under concurrent requests | `PaymentsRepositoryTests.KeepsEveryPaymentAddedConcurrently` |
+| Idempotent, no double charges | `IdempotencyTests`: repeated key, concurrent duplicates, reused key returns 422, retry after a failure, separate keys, no key |
+| Observable, with no card data in logs | `ObservabilityTests`: outcome logs, bank failure warning, no card number or CVV in any log, payments counted by outcome, `/health`, 500 ProblemDetails |
 
 ## Design as built
 
