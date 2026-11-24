@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 
 using PaymentGateway.Api.Models;
+using PaymentGateway.Api.Models.Requests;
 using PaymentGateway.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -13,6 +14,9 @@ builder.Services.AddControllers()
         var validationProblem = options.InvalidModelStateResponseFactory;
         options.InvalidModelStateResponseFactory = context =>
         {
+            context.HttpContext.RequestServices.GetRequiredService<ILogger<PostPaymentRequest>>()
+                .LogInformation("Payment rejected because of invalid fields: {InvalidFields}", string.Join(", ", context.ModelState.Keys));
+
             var result = (ObjectResult)validationProblem(context);
             ((ProblemDetails)result.Value!).Extensions["paymentStatus"] = PaymentStatus.Rejected;
             return result;

@@ -12,11 +12,16 @@ public class PaymentsController : Controller
 {
     private readonly PaymentsRepository _paymentsRepository;
     private readonly PaymentsService _paymentsService;
+    private readonly ILogger<PaymentsController> _logger;
 
-    public PaymentsController(PaymentsRepository paymentsRepository, PaymentsService paymentsService)
+    public PaymentsController(
+        PaymentsRepository paymentsRepository,
+        PaymentsService paymentsService,
+        ILogger<PaymentsController> logger)
     {
         _paymentsRepository = paymentsRepository;
         _paymentsService = paymentsService;
+        _logger = logger;
     }
 
     [HttpPost]
@@ -30,8 +35,10 @@ public class PaymentsController : Controller
 
             return CreatedAtRoute("GetPayment", new { id = payment.Id }, payment);
         }
-        catch (BankUnavailableException)
+        catch (BankUnavailableException exception)
         {
+            _logger.LogWarning(exception, "The acquiring bank was unavailable, so the payment was not processed");
+
             return Problem(
                 title: "The acquiring bank is unavailable.",
                 detail: "The payment could not be processed.",
@@ -39,6 +46,8 @@ public class PaymentsController : Controller
         }
         catch (IdempotencyKeyReusedException exception)
         {
+            _logger.LogWarning("Idempotency-Key {IdempotencyKey} was reused for a different payment", idempotencyKey);
+
             return Problem(
                 title: "The Idempotency-Key has already been used.",
                 detail: exception.Message,
