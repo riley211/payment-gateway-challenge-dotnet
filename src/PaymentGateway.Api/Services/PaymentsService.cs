@@ -10,7 +10,7 @@ namespace PaymentGateway.Api.Services;
 
 public class PaymentsService(
     IAcquiringBank bank,
-    PaymentsRepository paymentsRepository,
+    IPaymentsRepository paymentsRepository,
     IdempotencyStore idempotencyStore,
     PaymentMetrics metrics,
     ILogger<PaymentsService> logger)
@@ -50,7 +50,7 @@ public class PaymentsService(
             Amount = request.Amount!.Value
         };
 
-        paymentsRepository.Add(payment);
+        await paymentsRepository.AddAsync(payment);
         metrics.PaymentProcessed(payment.Status);
         logger.LogInformation(
             "Payment {PaymentId} for card ending {CardNumberLastFour} was {PaymentStatus} for {Amount} {Currency}",

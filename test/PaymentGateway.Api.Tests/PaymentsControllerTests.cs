@@ -30,12 +30,12 @@ public class PaymentsControllerTests
         };
 
         var paymentsRepository = new PaymentsRepository();
-        paymentsRepository.Add(payment);
+        await paymentsRepository.AddAsync(payment);
 
         var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
         var client = webApplicationFactory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services => ((ServiceCollection)services)
-                .AddSingleton(paymentsRepository)))
+                .AddSingleton<IPaymentsRepository>(paymentsRepository)))
             .CreateClient();
 
         // Act
@@ -64,12 +64,12 @@ public class PaymentsControllerTests
         };
 
         var paymentsRepository = new PaymentsRepository();
-        paymentsRepository.Add(payment);
+        await paymentsRepository.AddAsync(payment);
 
         var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
         var client = webApplicationFactory.WithWebHostBuilder(builder =>
             builder.ConfigureServices(services => ((ServiceCollection)services)
-                .AddSingleton(paymentsRepository)))
+                .AddSingleton<IPaymentsRepository>(paymentsRepository)))
             .CreateClient();
 
         // Act

@@ -7,14 +7,17 @@ namespace PaymentGateway.Api.Tests;
 public class PaymentsRepositoryTests
 {
     [Fact]
-    public void KeepsEveryPaymentAddedConcurrently()
+    public async Task KeepsEveryPaymentAddedConcurrently()
     {
         var repository = new PaymentsRepository();
         var payments = Enumerable.Range(0, 10_000).Select(_ => Payment()).ToList();
 
-        Parallel.ForEach(payments, repository.Add);
+        await Parallel.ForEachAsync(payments, async (payment, _) => await repository.AddAsync(payment));
 
-        Assert.All(payments, payment => Assert.Same(payment, repository.Get(payment.Id)));
+        foreach (var payment in payments)
+        {
+            Assert.Same(payment, await repository.GetAsync(payment.Id));
+        }
     }
 
     private static PostPaymentResponse Payment() => new()

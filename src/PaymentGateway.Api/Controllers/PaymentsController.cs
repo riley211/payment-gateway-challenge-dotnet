@@ -10,12 +10,12 @@ namespace PaymentGateway.Api.Controllers;
 [ApiController]
 public class PaymentsController : Controller
 {
-    private readonly PaymentsRepository _paymentsRepository;
+    private readonly IPaymentsRepository _paymentsRepository;
     private readonly PaymentsService _paymentsService;
     private readonly ILogger<PaymentsController> _logger;
 
     public PaymentsController(
-        PaymentsRepository paymentsRepository,
+        IPaymentsRepository paymentsRepository,
         PaymentsService paymentsService,
         ILogger<PaymentsController> logger)
     {
@@ -62,7 +62,7 @@ public class PaymentsController : Controller
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PostPaymentResponse?>> GetPaymentAsync(Guid id)
     {
-        var payment = _paymentsRepository.Get(id);
+        var payment = await _paymentsRepository.GetAsync(id);
 
         return payment is null ? NotFound() : Ok(payment);
     }

@@ -26,7 +26,7 @@ public sealed class ProcessPaymentTests : IDisposable
         _factory = new WebApplicationFactory<PaymentsController>()
             .WithWebHostBuilder(builder => builder.ConfigureServices(services =>
             {
-                services.AddSingleton(_repository);
+                services.AddSingleton<IPaymentsRepository>(_repository);
                 services.AddSingleton<IAcquiringBank>(_bank);
                 services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 11, 24, 12, 0, 0, TimeSpan.Zero)));
             }));

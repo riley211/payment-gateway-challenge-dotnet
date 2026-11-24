@@ -61,7 +61,7 @@ if (builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is not null)
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PaymentMetrics>();
-builder.Services.AddSingleton<PaymentsRepository>();
+builder.Services.AddSingleton<IPaymentsRepository, PaymentsRepository>();
 builder.Services.AddSingleton<IdempotencyStore>();
 builder.Services.AddScoped<PaymentsService>();
 builder.Services.AddHttpClient<IAcquiringBank, BankSimulatorClient>((services, client) =>
