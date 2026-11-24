@@ -53,7 +53,7 @@ Items are ticked once they are implemented and covered by a test.
 ### Additional non-functional requirements
 These aren't in the brief. They are the properties a payment system needs, so we hold ourselves to them.
 - [x] Asynchronous: non-blocking I/O, async end to end
-- [ ] Idempotent: a retried or duplicated request never charges the shopper twice
+- [x] Idempotent: a retried or duplicated request never charges the shopper twice. The one exception is a bank timeout, whose outcome is unknown; see document 02.
 - [x] Production evolution to a queue-based design is documented
 - [ ] Runs in Docker (gateway + bank simulator via docker compose)
 - [ ] Observable: structured logs, health check, traces and metrics
@@ -94,7 +94,7 @@ The merchant may send an `Idempotency-Key` header:
 - A repeat with the same key and the same body returns the original result **without calling the bank again**. This also holds if the repeat arrives while the first request is still in flight.
 - A repeat with the same key but a different body returns `422`. The key has already been used for a different payment.
 
-Details are in [02-idempotency-and-failure-handling.md](02-idempotency-and-failure-handling.md) (added with the implementation).
+Details are in [02-idempotency-and-failure-handling.md](02-idempotency-and-failure-handling.md).
 
 ### 3. No automatic retries to the bank
 Retrying a failed call is a common resilience pattern, but it is unsafe here. The simulator's API takes no idempotency key, so the gateway can't tell the bank "this is the same payment as before". A retry after a timeout could create a second authorisation. The gateway fails fast and leaves the retry decision to the merchant, whose idempotency key makes that retry safe on our side.
@@ -163,7 +163,7 @@ The upgrade also turned on NuGet's check of indirect dependencies for known vuln
 | Expiry year | A four-digit year, for example `2027`. |
 | Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. ASP.NET's default JSON settings also accept a numeric string such as `"04"`, which is kept because the value is still validated. A non-numeric value such as `"April"` is rejected. Card number and CVV are strings. |
 | Bank failure | `503`, a timeout or an unexpected response all map to `502`. No payment is stored. |
-| Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process. |
+| Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process, shared by all merchants, and never expire. See document 02 for the production approach. |
 | Retrieving | An unknown id returns `404`. |
 | Authentication | Out of scope. All callers are treated as one merchant. |
 
