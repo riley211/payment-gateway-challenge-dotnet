@@ -45,7 +45,7 @@ var openTelemetry = builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddMeter(PaymentMetrics.MeterName))
-    .WithLogging();
+    .WithLogging(configureBuilder: null, configureOptions: logging => logging.IncludeFormattedMessage = true);
 
 if (builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is not null)
 {
