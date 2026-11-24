@@ -1,4 +1,6 @@
-﻿namespace PaymentGateway.Api.Models.Responses;
+﻿using PaymentGateway.Api.Domain;
+
+namespace PaymentGateway.Api.Models.Responses;
 
 public class PostPaymentResponse
 {
@@ -9,4 +11,15 @@ public class PostPaymentResponse
     public int ExpiryYear { get; set; }
     public required string Currency { get; set; }
     public int Amount { get; set; }
+
+    public static PostPaymentResponse From(Payment payment) => new()
+    {
+        Id = payment.Id,
+        Status = payment.Status,
+        CardNumberLastFour = payment.CardNumberLastFour,
+        ExpiryMonth = payment.ExpiryMonth,
+        ExpiryYear = payment.ExpiryYear,
+        Currency = payment.Currency,
+        Amount = payment.Amount
+    };
 }

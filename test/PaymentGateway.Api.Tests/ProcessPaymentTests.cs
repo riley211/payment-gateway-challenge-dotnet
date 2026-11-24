@@ -16,6 +16,8 @@ namespace PaymentGateway.Api.Tests;
 
 public sealed class ProcessPaymentTests : IDisposable
 {
+    private static readonly DateTimeOffset Now = new(2026, 11, 24, 12, 0, 0, TimeSpan.Zero);
+
     private readonly FakeAcquiringBank _bank = new();
     private readonly PaymentsRepository _repository = new();
     private readonly WebApplicationFactory<PaymentsController> _factory;
@@ -26,9 +28,9 @@ public sealed class ProcessPaymentTests : IDisposable
         _factory = new WebApplicationFactory<PaymentsController>()
             .WithWebHostBuilder(builder => builder.ConfigureServices(services =>
             {
-                services.AddSingleton(_repository);
+                services.AddSingleton<IPaymentsRepository>(_repository);
                 services.AddSingleton<IAcquiringBank>(_bank);
-                services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 11, 24, 12, 0, 0, TimeSpan.Zero)));
+                services.AddSingleton<TimeProvider>(new FakeTimeProvider(Now));
             }));
         _client = _factory.CreateClient();
     }
@@ -49,6 +51,10 @@ public sealed class ProcessPaymentTests : IDisposable
         Assert.Equal("GBP", payment.Currency);
         Assert.Equal(1050, payment.Amount);
         Assert.Equal(new BankPaymentRequest("2222405343248877", "04/2030", "GBP", 1050, "123"), Assert.Single(_bank.Requests));
+
+        var stored = Assert.Single(_repository.Payments);
+        Assert.Equal(_bank.Response.AuthorizationCode, stored.AuthorizationCode);
+        Assert.Equal(Now, stored.CreatedAt);
     }
 
     [Fact]
@@ -61,6 +67,7 @@ public sealed class ProcessPaymentTests : IDisposable
         Assert.Equal(HttpStatusCode.Created, response.StatusCode);
         var payment = await response.Content.ReadFromJsonAsync<PostPaymentResponse>();
         Assert.Equal(PaymentStatus.Declined, payment!.Status);
+        Assert.Null(Assert.Single(_repository.Payments).AuthorizationCode);
     }
 
     [Fact]
@@ -77,7 +84,7 @@ public sealed class ProcessPaymentTests : IDisposable
     }
 
     [Fact]
-    public async Task NeverReturnsTheFullCardNumberOrCvv()
+    public async Task NeverReturnsTheFullCardNumberCvvOrInternalFields()
     {
         var created = await _client.PostAsJsonAsync("/api/Payments", ValidPayment());
         var createdJson = await created.Content.ReadAsStringAsync();
@@ -87,6 +94,8 @@ public sealed class ProcessPaymentTests : IDisposable
         {
             Assert.DoesNotContain("2222405343248877", json);
             Assert.DoesNotContain("cvv", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("authorizationCode", json, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("createdAt", json, StringComparison.OrdinalIgnoreCase);
         }
     }
 

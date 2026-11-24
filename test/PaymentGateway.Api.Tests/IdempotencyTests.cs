@@ -22,7 +22,7 @@ public sealed class IdempotencyTests : IDisposable
         _factory = new WebApplicationFactory<PaymentsController>()
             .WithWebHostBuilder(builder => builder.ConfigureServices(services =>
             {
-                services.AddSingleton(_repository);
+                services.AddSingleton<IPaymentsRepository>(_repository);
                 services.AddSingleton<IAcquiringBank>(_bank);
             }));
         _client = _factory.CreateClient();

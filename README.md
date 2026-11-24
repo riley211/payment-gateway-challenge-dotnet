@@ -131,9 +131,10 @@ To run only the fast suite: `dotnet test test/PaymentGateway.Api.Tests`
 ```
 src/PaymentGateway.Api/
   Controllers/   PaymentsController, RejectedPaymentResponse
+  Domain/        Payment, the stored payment record
   Models/        Requests, Responses, Bank (the simulator's request and response)
   Services/      PaymentsService, BankSimulatorClient (IAcquiringBank),
-                 IdempotencyStore, PaymentsRepository, PaymentMetrics
+                 PaymentsRepository (IPaymentsRepository), IdempotencyStore, PaymentMetrics
 test/
   PaymentGateway.Api.Tests/              unit and in-memory API tests
   PaymentGateway.Api.IntegrationTests/   tests against the real bank simulator
@@ -156,7 +157,7 @@ In short:
 - **Synchronous contract, asynchronous implementation.** `POST` returns the final status, as the brief requires, and is `async` end to end.
 - **No automatic retries to the bank.** It takes no idempotency key, so a retry could authorise twice. Merchants retry safely with `Idempotency-Key` instead.
 - **Card data:** the full card number and CVV are only sent to the bank. They are never stored, returned or logged.
-- **Storage** is the template's in-memory repository, made safe for concurrent requests.
+- **Storage:** a `Payment` domain record, separate from the API contract. It also keeps the bank's authorization code and the creation time, which merchants never see. It's stored in the template's in-memory repository, behind `IPaymentsRepository` and safe for concurrent requests.
 - **Observability** uses vendor-neutral OpenTelemetry, viewed locally in the Aspire Dashboard.
 
 ## Security
@@ -181,7 +182,7 @@ In short:
 |---|---|
 | Processing model | Accept with `202`, process through an outbox, a queue and workers, and notify by webhook (see document 01) |
 | Unknown outcomes | Send the bank an idempotency key, record each attempt before calling it, and reconcile timeouts against the bank's records |
-| Storage | A database, with a domain model separate from the API contract |
+| Storage | A database implementation of `IPaymentsRepository`, with the payment and its idempotency record written in one transaction |
 | Idempotency | Keys in the shared database or Redis, scoped per merchant, with a time to live and an HMAC fingerprint |
 | Security | Merchant authentication, PCI tokenisation, rate limiting and secrets management (see [Security](#security)) |
 | Decline reasons | Store and return the acquirer's decline code, so merchants know whether a retry can succeed |
