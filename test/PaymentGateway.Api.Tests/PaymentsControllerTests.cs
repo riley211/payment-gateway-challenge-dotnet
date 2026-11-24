@@ -20,10 +20,10 @@ public class PaymentsControllerTests
         var payment = new PostPaymentResponse
         {
             Id = Guid.NewGuid(),
-            ExpiryYear = _random.Next(2023, 2030),
-            ExpiryMonth = _random.Next(1, 12),
+            ExpiryYear = _random.Next(2027, 2031),
+            ExpiryMonth = _random.Next(1, 13),
             Amount = _random.Next(1, 10000),
-            CardNumberLastFour = _random.Next(1111, 9999),
+            CardNumberLastFour = "0123",
             Currency = "GBP"
         };
 
@@ -43,6 +43,7 @@ public class PaymentsControllerTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(paymentResponse);
+        Assert.Equal("0123", paymentResponse?.CardNumberLastFour);
     }
 
     [Fact]
