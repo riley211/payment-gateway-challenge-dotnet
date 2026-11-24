@@ -1,4 +1,3 @@
-using Microsoft.AspNetCore.Mvc;
 using Microsoft.OpenApi;
 
 using OpenTelemetry;
@@ -7,30 +6,16 @@ using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
 
-using PaymentGateway.Api.Models;
-using PaymentGateway.Api.Models.Requests;
+using PaymentGateway.Api.Controllers;
 using PaymentGateway.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers()
-    .ConfigureApiBehaviorOptions(options =>
-    {
-        var validationProblem = options.InvalidModelStateResponseFactory;
-        options.InvalidModelStateResponseFactory = context =>
-        {
-            var services = context.HttpContext.RequestServices;
-            services.GetRequiredService<PaymentMetrics>().PaymentProcessed(PaymentStatus.Rejected);
-            services.GetRequiredService<ILogger<PostPaymentRequest>>()
-                .LogInformation("Payment rejected because of invalid fields: {InvalidFields}", string.Join(", ", context.ModelState.Keys));
-
-            var result = (ObjectResult)validationProblem(context);
-            ((ProblemDetails)result.Value!).Extensions["paymentStatus"] = PaymentStatus.Rejected;
-            return result;
-        };
-    });
+builder.Services.AddControllers(options => options.SuppressImplicitRequiredAttributeForNonNullableReferenceTypes = true)
+    .AddJsonOptions(options => options.AllowInputFormatterExceptionMessages = false)
+    .ConfigureApiBehaviorOptions(options => options.InvalidModelStateResponseFactory = RejectedPaymentResponse.Create);
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(options =>

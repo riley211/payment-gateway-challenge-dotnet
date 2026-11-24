@@ -112,7 +112,9 @@ public class ProcessPaymentTests
             cvv = "123"
         });
 
-        await AssertRejected(response, "CardNumber", "Currency");
+        await AssertRejected(response,
+            ("cardNumber", "Card number must be between 14 and 19 digits."),
+            ("currency", "Currency must be one of GBP, USD or EUR."));
     }
 
     [Fact]
@@ -128,7 +130,9 @@ public class ProcessPaymentTests
             cvv = "123"
         });
 
-        await AssertRejected(response, "ExpiryMonth", "ExpiryYear");
+        await AssertRejected(response,
+            ("expiryMonth", "The card has expired."),
+            ("expiryYear", "The card has expired."));
     }
 
     [Fact]
@@ -144,19 +148,23 @@ public class ProcessPaymentTests
             cvv = "123"
         });
 
-        await AssertRejected(response, "$.expiryMonth");
+        await AssertRejected(response, ("expiryMonth", "The input was not valid."));
     }
 
-    private async Task AssertRejected(HttpResponseMessage response, params string[] invalidFields)
+    private async Task AssertRejected(HttpResponseMessage response, params (string Field, string Message)[] expectedErrors)
     {
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
 
         using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
         Assert.Equal("Rejected", problem.RootElement.GetProperty("paymentStatus").GetString());
-        var errors = problem.RootElement.GetProperty("errors");
-        foreach (var field in invalidFields)
+        Assert.Equal("The payment was rejected because some fields are invalid.", problem.RootElement.GetProperty("title").GetString());
+        var errors = problem.RootElement.GetProperty("errors")
+            .EnumerateObject()
+            .ToDictionary(error => error.Name, error => error.Value.EnumerateArray().Select(message => message.GetString()).ToList());
+        Assert.Equal(expectedErrors.Select(error => error.Field).Order(), errors.Keys.Order());
+        foreach (var (field, message) in expectedErrors)
         {
-            Assert.True(errors.TryGetProperty(field, out _), $"Expected an error for {field} in {errors}");
+            Assert.Contains(message, errors[field]);
         }
 
         Assert.Empty(_bank.Requests);
