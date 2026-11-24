@@ -15,7 +15,7 @@ using PaymentGateway.Api.Services;
 
 namespace PaymentGateway.Api.Tests;
 
-public class ObservabilityTests
+public sealed class ObservabilityTests : IDisposable
 {
     private const string CardNumber = "2222405343248877";
     private const string Cvv = "4321";
@@ -32,6 +32,8 @@ public class ObservabilityTests
                 .AddSingleton<IAcquiringBank>(_bank)));
         _client = _factory.CreateClient();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task LogsTheOutcomeOfAPayment()

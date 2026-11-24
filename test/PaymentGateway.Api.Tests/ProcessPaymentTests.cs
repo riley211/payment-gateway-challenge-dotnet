@@ -14,23 +14,26 @@ using PaymentGateway.Api.Services;
 
 namespace PaymentGateway.Api.Tests;
 
-public class ProcessPaymentTests
+public sealed class ProcessPaymentTests : IDisposable
 {
     private readonly FakeAcquiringBank _bank = new();
     private readonly PaymentsRepository _repository = new();
+    private readonly WebApplicationFactory<PaymentsController> _factory;
     private readonly HttpClient _client;
 
     public ProcessPaymentTests()
     {
-        _client = new WebApplicationFactory<PaymentsController>()
+        _factory = new WebApplicationFactory<PaymentsController>()
             .WithWebHostBuilder(builder => builder.ConfigureServices(services =>
             {
                 services.AddSingleton(_repository);
                 services.AddSingleton<IAcquiringBank>(_bank);
                 services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 11, 24, 12, 0, 0, TimeSpan.Zero)));
-            }))
-            .CreateClient();
+            }));
+        _client = _factory.CreateClient();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task AuthorizesAPaymentTheBankApproves()

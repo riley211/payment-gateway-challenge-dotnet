@@ -10,22 +10,25 @@ using PaymentGateway.Api.Services;
 
 namespace PaymentGateway.Api.Tests;
 
-public class IdempotencyTests
+public sealed class IdempotencyTests : IDisposable
 {
     private readonly FakeAcquiringBank _bank = new();
     private readonly PaymentsRepository _repository = new();
+    private readonly WebApplicationFactory<PaymentsController> _factory;
     private readonly HttpClient _client;
 
     public IdempotencyTests()
     {
-        _client = new WebApplicationFactory<PaymentsController>()
+        _factory = new WebApplicationFactory<PaymentsController>()
             .WithWebHostBuilder(builder => builder.ConfigureServices(services =>
             {
                 services.AddSingleton(_repository);
                 services.AddSingleton<IAcquiringBank>(_bank);
-            }))
-            .CreateClient();
+            }));
+        _client = _factory.CreateClient();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task ReturnsTheOriginalPaymentWhenAKeyIsRepeated()

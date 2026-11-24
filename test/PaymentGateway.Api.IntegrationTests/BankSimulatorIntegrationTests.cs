@@ -10,20 +10,23 @@ using PaymentGateway.Api.Models.Responses;
 
 namespace PaymentGateway.Api.IntegrationTests;
 
-public class BankSimulatorIntegrationTests : IClassFixture<BankSimulatorFixture>
+public sealed class BankSimulatorIntegrationTests : IClassFixture<BankSimulatorFixture>, IDisposable
 {
+    private readonly WebApplicationFactory<PaymentsController> _factory;
     private readonly HttpClient _client;
 
     public BankSimulatorIntegrationTests(BankSimulatorFixture bankSimulator)
     {
-        _client = new WebApplicationFactory<PaymentsController>()
+        _factory = new WebApplicationFactory<PaymentsController>()
             .WithWebHostBuilder(builder => builder.ConfigureAppConfiguration((_, configuration) =>
                 configuration.AddInMemoryCollection(new Dictionary<string, string?>
                 {
                     ["BankSimulator:BaseUrl"] = bankSimulator.BaseUrl
-                })))
-            .CreateClient();
+                })));
+        _client = _factory.CreateClient();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task AuthorizesACardTheBankApproves()
