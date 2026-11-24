@@ -55,8 +55,8 @@ These aren't in the brief. They are the properties a payment system needs, so we
 - [x] Asynchronous: non-blocking I/O, async end to end
 - [x] Idempotent: a retried or duplicated request never charges the shopper twice. The one exception is a bank timeout, whose outcome is unknown; see document 02.
 - [x] Production evolution to a queue-based design is documented
-- [ ] Runs in Docker (gateway + bank simulator via docker compose)
-- [ ] Observable: structured logs, health check, traces and metrics
+- [x] Runs in Docker (gateway + bank simulator via docker compose); see document 03
+- [x] Observable: structured logs, health check, traces and metrics; see document 03
 
 ## Design as built
 

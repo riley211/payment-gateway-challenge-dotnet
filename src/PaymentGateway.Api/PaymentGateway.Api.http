@@ -1,3 +1,4 @@
+# Running with docker compose? Use http://localhost:8090 instead.
 @gateway = https://localhost:7092
 
 ### Authorized: the card number ends in an odd digit
