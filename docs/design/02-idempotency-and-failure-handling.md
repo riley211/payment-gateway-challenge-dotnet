@@ -21,7 +21,7 @@ The merchant sends an optional `Idempotency-Key` header, typically their own ord
 
 `IdempotencyStore` is one `ConcurrentDictionary`, keyed by the idempotency key. Each entry holds:
 - **A request fingerprint:** a SHA-256 hash of the request, used to spot a key reused for a different payment. Only the hash is kept, never the card number or CVV.
-- **The payment task:** a `Lazy<Task<PostPaymentResponse>>` for the in-progress or completed payment.
+- **The payment task:** a `Lazy<Task<Payment>>` for the in-progress or completed payment.
 
 ```mermaid
 flowchart LR

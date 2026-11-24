@@ -131,17 +131,23 @@ The merchant disconnecting does **not** cancel the bank call. If it did, the ban
 Request rules are declared with built-in DataAnnotations on the request model. The one cross-field rule (expiry month and year in the future) is implemented with `IValidatableObject`. `[ApiController]` turns failures into a `400` before the controller runs, which is what guarantees a Rejected request never reaches the bank. No validation library is added, because the rules are simple enough that the framework covers them.
 
 ### 7. Storage
-Storage is the in-memory `PaymentsRepository` from the template. Its lookup returns `null` for an unknown id, which the controller turns into `404`.
+Storage is the in-memory `PaymentsRepository` from the template, behind an `IPaymentsRepository` interface. Its methods are async, as a database's would be, so a real store can replace it without changing callers. Its lookup returns `null` for an unknown id, which the controller turns into `404`.
 
-Requests are handled in parallel, so `Add` and `Get` take a lock around the shared `List`. Without it, two payments saved at the same moment can corrupt the list. A test adding 10,000 payments in parallel lost most of them before the lock was added.
+It stores a **`Payment` domain record**, not an API response object. Storage and the API contract can then change independently, and the record keeps two things merchants never see:
+- the bank's `authorization_code` (only when authorised), for reconciliation with the acquirer
+- `CreatedAt`, from `TimeProvider`
+
+POST and GET map the record to `PostPaymentResponse` and `GetPaymentResponse`, which contain only the fields the brief specifies. A test checks that neither extra field is ever returned.
+
+Requests are handled in parallel, so `AddAsync` and `GetAsync` take a lock around the shared `List`. Without it, two payments saved at the same moment can corrupt the list. A test adds 10,000 payments in parallel and checks every one can be read back; without the lock, most are lost.
 
 A queue wouldn't be the right fix. The problem is concurrent access to an unsafe collection, and that happens whatever the API style. In production, the database handles concurrent writes. A queue is there for durability and load, not thread-safety.
 
 ### 8. The template's structure is kept
 The template's layout is kept so the changes are easy to review against the original:
-- `PaymentsRepository` stays in `Services/` and stores the response model.
+- `PaymentsRepository` stays in `Services/`. It implements `IPaymentsRepository` and stores the domain record (decision 7).
 - `PaymentStatus` stays in `Enums/`.
-- Both response classes are kept.
+- Both response classes are kept and used: `PostPaymentResponse` for POST, `GetPaymentResponse` for GET.
 
 Fixes are made only where something was wrong, such as the card number, CVV and last four being integers.
 
@@ -159,10 +165,8 @@ In production the structure would change:
 
 | Kept for the exercise | Production approach |
 |---|---|
-| The repository stores `PostPaymentResponse`, the API contract | A domain model is stored and mapped to responses, so storage and the API can change independently |
-| A concrete `PaymentsRepository` class | An interface such as `IPaymentsRepository`, with async methods, so a real database can replace it without changing callers |
-| A `List<T>` behind a lock, searched one item at a time | A database with an index on the payment id |
-| The bank's `authorization_code` isn't stored, because the stored model is the response contract and has no field for it | Stored with the payment for reconciliation with the bank, but never returned to the merchant |
+| A `List<T>` behind a lock, searched one item at a time | A database implementation of `IPaymentsRepository`, with an index on the payment id |
+| The `Payment` record is a plain data record | Behaviour such as status transitions (for example captures and refunds) moves onto it as the domain grows |
 | `GetPaymentResponse` and `PostPaymentResponse` have identical fields | Kept as two types so each contract can change on its own |
 
 ### 9. Runtime
