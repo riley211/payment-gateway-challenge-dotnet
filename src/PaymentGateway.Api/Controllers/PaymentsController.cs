@@ -28,6 +28,10 @@ public class PaymentsController : Controller
     }
 
     [HttpPost]
+    [ProducesResponseType<PostPaymentResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<ActionResult<PostPaymentResponse>> PostPaymentAsync(
         PostPaymentRequest request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
@@ -60,6 +64,8 @@ public class PaymentsController : Controller
     }
 
     [HttpGet("{id:guid}", Name = "GetPayment")]
+    [ProducesResponseType<PostPaymentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PostPaymentResponse?>> GetPaymentAsync(Guid id)
     {
         var payment = _paymentsRepository.Get(id);

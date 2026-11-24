@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.OpenApi;
 
 using OpenTelemetry;
 using OpenTelemetry.Logs;
@@ -32,7 +33,28 @@ builder.Services.AddControllers()
     });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo
+    {
+        Title = "Payment Gateway",
+        Version = "v1",
+        Description = """
+            Process card payments through the acquiring bank and retrieve them later.
+
+            **Test cards for the bank simulator.** The last digit decides the outcome:
+
+            | Card number | Result |
+            |---|---|
+            | `2222405343248877` (odd) | 201 Authorized |
+            | `2222405343248878` (even) | 201 Declined |
+            | `2222405343248870` (zero) | 502, the bank is unavailable |
+
+            Send an `Idempotency-Key` header to make retries safe: repeating it returns the original payment.
+            """
+    });
+    options.IncludeXmlComments(Path.Combine(AppContext.BaseDirectory, "PaymentGateway.Api.xml"));
+});
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
 
