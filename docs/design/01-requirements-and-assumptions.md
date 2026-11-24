@@ -55,8 +55,8 @@ These aren't in the brief. They are the properties a payment system needs, so we
 - [x] Asynchronous: non-blocking I/O, async end to end
 - [x] Idempotent: a retried or duplicated request never charges the shopper twice. The one exception is a bank timeout, whose outcome is unknown; see document 02.
 - [x] Production evolution to a queue-based design is documented
-- [ ] Runs in Docker (gateway + bank simulator via docker compose)
-- [ ] Observable: structured logs, health check, traces and metrics
+- [x] Runs in Docker (gateway + bank simulator via docker compose); see document 03
+- [x] Observable: structured logs, health check, traces and metrics; see document 03
 
 ## Design as built
 
@@ -160,7 +160,7 @@ The upgrade also turned on NuGet's check of indirect dependencies for known vuln
 
 | Area | Assumption |
 |---|---|
-| Rejected response | `400 Bad Request` with a `ValidationProblemDetails` body listing each failed field, plus `"paymentStatus": "Rejected"`. It isn't called `status`, because ProblemDetails already uses `status` for the HTTP status code. Nothing is stored, so a rejected payment has no id and can't be retrieved. |
+| Rejected response | `400 Bad Request` with a `ValidationProblemDetails` body, plus `"paymentStatus": "Rejected"`. It isn't called `status`, because ProblemDetails already uses `status` for the HTTP status code. Errors are keyed by the JSON field name the merchant sent (`cardNumber`, not `CardNumber`), each with a plain-English message such as "Currency must be one of GBP, USD or EUR." The framework's technical defaults are never shown. Nothing is stored, so a rejected payment has no id and can't be retrieved. |
 | Currencies | `GBP`, `USD` and `EUR`, upper-case only. The brief asks for no more than three codes. |
 | Amount | Must be greater than zero. A zero or negative payment has no meaning. |
 | Expiry | A card is valid until the end of its expiry month, so the current month is accepted. "Now" is UTC and comes from an injected `TimeProvider`, so tests can control it. |

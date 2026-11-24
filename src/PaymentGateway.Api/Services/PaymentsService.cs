@@ -8,7 +8,12 @@ using PaymentGateway.Api.Models.Responses;
 
 namespace PaymentGateway.Api.Services;
 
-public class PaymentsService(IAcquiringBank bank, PaymentsRepository paymentsRepository, IdempotencyStore idempotencyStore)
+public class PaymentsService(
+    IAcquiringBank bank,
+    PaymentsRepository paymentsRepository,
+    IdempotencyStore idempotencyStore,
+    PaymentMetrics metrics,
+    ILogger<PaymentsService> logger)
 {
     public Task<PostPaymentResponse> ProcessPaymentAsync(PostPaymentRequest request, string? idempotencyKey)
     {
@@ -36,6 +41,10 @@ public class PaymentsService(IAcquiringBank bank, PaymentsRepository paymentsRep
         };
 
         paymentsRepository.Add(payment);
+        metrics.PaymentProcessed(payment.Status);
+        logger.LogInformation(
+            "Payment {PaymentId} for card ending {CardNumberLastFour} was {PaymentStatus} for {Amount} {Currency}",
+            payment.Id, payment.CardNumberLastFour, payment.Status, payment.Amount, payment.Currency);
 
         return payment;
     }

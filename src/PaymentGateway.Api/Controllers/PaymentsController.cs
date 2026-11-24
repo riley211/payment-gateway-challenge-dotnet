@@ -12,14 +12,26 @@ public class PaymentsController : Controller
 {
     private readonly PaymentsRepository _paymentsRepository;
     private readonly PaymentsService _paymentsService;
+    private readonly PaymentMetrics _metrics;
+    private readonly ILogger<PaymentsController> _logger;
 
-    public PaymentsController(PaymentsRepository paymentsRepository, PaymentsService paymentsService)
+    public PaymentsController(
+        PaymentsRepository paymentsRepository,
+        PaymentsService paymentsService,
+        PaymentMetrics metrics,
+        ILogger<PaymentsController> logger)
     {
         _paymentsRepository = paymentsRepository;
         _paymentsService = paymentsService;
+        _metrics = metrics;
+        _logger = logger;
     }
 
     [HttpPost]
+    [ProducesResponseType<PostPaymentResponse>(StatusCodes.Status201Created)]
+    [ProducesResponseType<ValidationProblemDetails>(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status422UnprocessableEntity)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status502BadGateway)]
     public async Task<ActionResult<PostPaymentResponse>> PostPaymentAsync(
         PostPaymentRequest request,
         [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
@@ -30,8 +42,11 @@ public class PaymentsController : Controller
 
             return CreatedAtRoute("GetPayment", new { id = payment.Id }, payment);
         }
-        catch (BankUnavailableException)
+        catch (BankUnavailableException exception)
         {
+            _metrics.BankUnavailable();
+            _logger.LogWarning(exception, "The acquiring bank was unavailable, so the payment was not processed");
+
             return Problem(
                 title: "The acquiring bank is unavailable.",
                 detail: "The payment could not be processed.",
@@ -39,6 +54,8 @@ public class PaymentsController : Controller
         }
         catch (IdempotencyKeyReusedException exception)
         {
+            _logger.LogWarning("Idempotency-Key {IdempotencyKey} was reused for a different payment", idempotencyKey);
+
             return Problem(
                 title: "The Idempotency-Key has already been used.",
                 detail: exception.Message,
@@ -47,6 +64,8 @@ public class PaymentsController : Controller
     }
 
     [HttpGet("{id:guid}", Name = "GetPayment")]
+    [ProducesResponseType<PostPaymentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<PostPaymentResponse?>> GetPaymentAsync(Guid id)
     {
         var payment = _paymentsRepository.Get(id);

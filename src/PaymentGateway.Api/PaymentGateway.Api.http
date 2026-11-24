@@ -1,4 +1,5 @@
-@gateway = https://localhost:7092
+# Targets the gateway in docker compose. For dotnet run, use https://localhost:7092 instead.
+@gateway = http://localhost:8090
 
 ### Authorized: the card number ends in an odd digit
 # @name authorized
