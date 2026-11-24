@@ -10,9 +10,9 @@ docker compose up --build
 
 | Service | URL | Purpose |
 |---|---|---|
-| Payment gateway | http://localhost:8090 (Swagger at `/swagger`) | The API |
-| Aspire Dashboard | http://localhost:18888 | Traces, metrics and logs from the gateway |
-| Bank simulator | http://localhost:8080, admin on `:2525` | The template's Mountebank simulator, unchanged |
+| Swagger UI (try the API in a browser) | [http://localhost:8090/swagger](http://localhost:8090/swagger) | The gateway API, with a test-card guide and working examples |
+| Aspire Dashboard | [http://localhost:18888](http://localhost:18888) | Traces, metrics and logs from the gateway |
+| Bank simulator | [http://localhost:8080](http://localhost:8080), admin on [http://localhost:2525](http://localhost:2525) | The template's Mountebank simulator, unchanged |
 
 ## Packaging
 
@@ -30,7 +30,7 @@ docker compose up --build
 | **Logs** | Structured JSON in the container (`Logging__Console__FormatterName=json`). One line per outcome: Authorized/Declined with payment id, amount and currency; Rejected with the invalid field *names*; warnings for bank failures and reused idempotency keys. | `docker compose logs payment_gateway`, or the dashboard's Structured logs page |
 | **Metrics** | `payment_gateway.payments` on the `PaymentGateway` meter, tagged `outcome` = Authorized / Declined / Rejected / BankUnavailable. Also the built-in `http.server.request.duration` and `http.client.request.duration`, which give bank latency. | Dashboard → Metrics |
 | **Traces** | One trace per request. If the bank was called, it contains a child span for the bank call with its timing. Health checks are filtered out. | Dashboard → Traces |
-| **Health** | `GET /health` returns `Healthy` while the process can serve requests. | `curl http://localhost:8090/health` |
+| **Health** | `GET /health` returns `Healthy` while the process can serve requests. | [http://localhost:8090/health](http://localhost:8090/health) |
 | **Errors** | Every error response is ProblemDetails, including unexpected 500s, and carries a `traceId` that matches the trace and the log lines. | Response body |
 
 **Card data never reaches telemetry.** The full card number and CVV are never logged, and a test sends Authorized, failed and Rejected payments and checks that neither value appears in any log record.
