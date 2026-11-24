@@ -20,13 +20,13 @@ Items are ticked once they are implemented and covered by a test.
   - **Authorized**: the acquiring bank authorised the payment
   - **Declined**: the acquiring bank declined the payment
   - **Rejected**: the request was invalid, no payment was created, and the bank was not called
-- [ ] Card number: required, 14–19 characters, numeric only
-- [ ] Expiry month: required, 1–12
-- [ ] Expiry year: required, in the future
-- [ ] Expiry month and year together are in the future
-- [ ] Currency: required, 3 characters, ISO 4217, validated against no more than 3 currency codes
-- [ ] Amount: required, integer, in the minor currency unit (0.01 USD = `1`, 10.50 USD = `1050`)
-- [ ] CVV: required, 3–4 characters, numeric only
+- [x] Card number: required, 14–19 characters, numeric only
+- [x] Expiry month: required, 1–12
+- [x] Expiry year: required, in the future
+- [x] Expiry month and year together are in the future
+- [x] Currency: required, 3 characters, ISO 4217, validated against no more than 3 currency codes
+- [x] Amount: required, integer, in the minor currency unit (0.01 USD = `1`, 10.50 USD = `1050`)
+- [x] CVV: required, 3–4 characters, numeric only
 - [ ] The response includes: id, status (Authorized / Declined), the last four card digits (never the full number), expiry month, expiry year, currency, amount
 
 ### Retrieving a payment
@@ -154,8 +154,9 @@ The upgrade also turned on NuGet's check of indirect dependencies for known vuln
 | Rejected response | `400 Bad Request` with a `ValidationProblemDetails` body listing each failed field, plus `"status": "Rejected"`. Nothing is stored, so a rejected payment has no id and can't be retrieved. |
 | Currencies | `GBP`, `USD` and `EUR`, upper-case only. The brief asks for no more than three codes. |
 | Amount | Must be greater than zero. A zero or negative payment has no meaning. |
-| Expiry | A card is valid until the end of its expiry month, so the current month is accepted. "Now" comes from an injected `TimeProvider` so tests can control it. |
+| Expiry | A card is valid until the end of its expiry month, so the current month is accepted. "Now" is UTC and comes from an injected `TimeProvider`, so tests can control it. |
 | Expiry year | A four-digit year, for example `2027`. |
+| Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. Sending one as a string (for example `"01"`) is invalid. Card number and CVV are strings. |
 | Bank failure | `503`, a timeout or an unexpected response all map to `502`. No payment is stored. |
 | Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process. |
 | Retrieving | An unknown id returns `404`. |
