@@ -30,8 +30,8 @@ Items are ticked once they are implemented and covered by a test.
 - [ ] The response includes: id, status (Authorized / Declined), the last four card digits (never the full number), expiry month, expiry year, currency, amount
 
 ### Retrieving a payment
-- [ ] A merchant can retrieve a previous payment by its id
-- [ ] The response includes the same fields: id, status, last four card digits, expiry month, expiry year, currency, amount
+- [x] A merchant can retrieve a previous payment by its id
+- [x] The response includes the same fields: id, status, last four card digits, expiry month, expiry year, currency, amount
 
 ### Acquiring bank integration
 - [ ] `POST /payments` on the simulator with `card_number`, `expiry_date` (`MM/YYYY`), `currency`, `amount`, `cvv`
@@ -39,13 +39,13 @@ Items are ticked once they are implemented and covered by a test.
 - [ ] The simulator's behaviour is handled: odd last digit → authorised, even → declined, `0` → `503`, missing field → `400`
 
 ### Storage
-- [ ] No real database. The in-memory repository from the template stands in for storage.
+- [x] No real database. The in-memory repository from the template stands in for storage.
 
 ### Documentation
 - [ ] Key design considerations and assumptions are documented (this folder, plus the root README)
 
 ### Implementation considerations
-- [ ] Compiles
+- [x] Compiles
 - [ ] Covered by automated tests
 - [ ] Simple and maintainable, not over-engineered
 - [ ] API design and architecture focus on the functional requirements
@@ -111,9 +111,36 @@ If the bank returns `503`, times out or responds unexpectedly, the gateway retur
 Request rules are declared with built-in DataAnnotations on the request model. The one cross-field rule (expiry month and year in the future) is implemented with `IValidatableObject`. `[ApiController]` turns failures into a `400` before the controller runs, which is what guarantees a Rejected request never reaches the bank. No validation library is added, because the rules are simple enough that the framework covers them.
 
 ### 7. Storage
-Storage is the in-memory repository from the template, made thread-safe. It sits behind an interface so a real database could replace it without touching the rest of the code.
+Storage is the in-memory `PaymentsRepository` from the template. Its lookup returns `null` for an unknown id, which the controller turns into `404`.
 
-### 8. Runtime
+### 8. The template's structure is kept
+The template's layout is kept so the changes are easy to review against the original:
+- `PaymentsRepository` stays in `Services/` and stores the response model.
+- `PaymentStatus` stays in `Enums/`.
+- Both response classes are kept.
+
+Fixes are made only where something was wrong, such as the card number, CVV and last four being integers.
+
+The template is treated as a starting skeleton, not a published API, so there are no existing integrations to keep compatible. Nothing could have integrated with it: there was no POST endpoint, so GET could never return a payment. Its signatures are still kept wherever possible. Three things change because the brief requires them:
+
+| Change | Why |
+|---|---|
+| The request carries `CardNumber` instead of `CardNumberLastFour` | The bank needs the full card number, and the brief lists it as a request field |
+| `CardNumberLastFour` in responses is a string, not a number | As a number, a card ending `0123` would read as `123` |
+| `Status` is serialised as text (`"Declined"`), not a number (`1`) | The brief defines the status values as text |
+
+In a live API, a type change like this would go out as a new version rather than in place.
+
+In production the structure would change:
+
+| Kept for the exercise | Production approach |
+|---|---|
+| The repository stores `PostPaymentResponse`, the API contract | A domain model is stored and mapped to responses, so storage and the API can change independently |
+| A concrete `PaymentsRepository` class | An interface such as `IPaymentsRepository`, with async methods, so a real database can replace it without changing callers |
+| A `List<T>` with no locking. Concurrent writes from parallel requests aren't safe. | A database, or a `ConcurrentDictionary` for an in-memory store |
+| `GetPaymentResponse` and `PostPaymentResponse` have identical fields | Kept as two types so each contract can change on its own |
+
+### 9. Runtime
 The template targeted .NET 8, which reached end of support on 10 November 2026. The solution targets **.NET 10**, the current long-term-support release. No code changes were needed.
 
 The upgrade also turned on NuGet's check of indirect dependencies for known vulnerabilities, which .NET 8 projects don't run by default. It flagged two packages that were in the template, and both were updated:
