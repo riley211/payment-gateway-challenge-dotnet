@@ -117,6 +117,15 @@ dotnet test
 
 To run only the fast suite: `dotnet test test/PaymentGateway.Api.Tests`
 
+### Continuous integration
+
+[GitHub Actions](.github/workflows/ci.yml) runs on every pull request and every push to `main`. It:
+- builds with warnings treated as errors
+- checks formatting against the template's `.editorconfig`
+- runs both test projects (the integration tests use the runner's Docker)
+- fails on any dependency with a known vulnerability
+- builds the Docker image
+
 ## Project structure
 
 ```
@@ -150,6 +159,22 @@ In short:
 - **Storage** is the template's in-memory repository, made safe for concurrent requests.
 - **Observability** uses vendor-neutral OpenTelemetry, viewed locally in the Aspire Dashboard.
 
+## Security
+
+**In place:**
+- **Card data.** The full card number and CVV are only sent to the bank. They are never stored, returned or logged, and a test checks every log record for them. Responses and logs carry only the last four digits.
+- **Input validation.** Every field is validated before any processing. Invalid requests are rejected without calling the bank.
+- **Error responses.** Errors use ProblemDetails, with parser and exception internals hidden. Exception details only appear in `Development`.
+- **Container.** It runs as a non-root user from the runtime-only .NET image, with no SDK, source code or tools such as `curl`.
+- **Dependencies.** CI fails the build if any package has a known vulnerability.
+
+**Out of scope for this exercise, and required for production:**
+- **Authentication.** Merchants authenticate with API keys or OAuth 2 client credentials. Payments and idempotency keys are scoped per merchant, so a merchant can only retrieve its own payments.
+- **PCI DSS.** Card data is tokenised by a PCI-scoped vault, so the gateway handles tokens rather than card numbers.
+- **Transport.** TLS terminates at the load balancer or ingress, with HSTS.
+- **Abuse protection.** Rate limiting per merchant, and request size limits.
+- **Secrets.** Kept in a secrets manager, never in configuration files.
+
 ## Production next steps
 
 | Area | Next step |
@@ -158,8 +183,8 @@ In short:
 | Unknown outcomes | Send the bank an idempotency key, record each attempt before calling it, and reconcile timeouts against the bank's records |
 | Storage | A database, with a domain model separate from the API contract |
 | Idempotency | Keys in the shared database or Redis, scoped per merchant, with a time to live and an HMAC fingerprint |
-| Security | Merchant authentication (API keys or OAuth), and card data tokenised by a PCI-scoped vault |
+| Security | Merchant authentication, PCI tokenisation, rate limiting and secrets management (see [Security](#security)) |
 | Decline reasons | Store and return the acquirer's decline code, so merchants know whether a retry can succeed |
 | Card validation | A Luhn checksum to catch mistyped card numbers before calling the bank |
 | Observability | Export OTLP to a Collector feeding the team's monitoring platform, with alerts on bank failure rate, bank latency and rejection spikes |
-| Delivery | CI building and testing one image per commit, image scanning, and deployment to Kubernetes or ECS behind TLS, with liveness and readiness probes |
+| Delivery | Branch protection on `main`, requiring CI to pass and a reviewer's approval. CI publishes one image per commit to a registry, with image scanning. Continuous deployment of that image to staging, then production, on Kubernetes or ECS behind TLS, with liveness and readiness probes. |

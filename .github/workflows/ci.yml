@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      # The .editorconfig requires CRLF line endings, so check out the way a Windows clone would.
+      - name: Use CRLF line endings
+        run: git config --global core.autocrlf true
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release -warnaserror
+
+      - name: Check formatting
+        run: dotnet format --no-restore --verify-no-changes
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release
+
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list package --vulnerable --include-transitive | tee vulnerable-packages.txt
+          ! grep -q "has the following vulnerable packages" vulnerable-packages.txt
+
+      - name: Build Docker image
+        run: docker build --tag payment-gateway .
