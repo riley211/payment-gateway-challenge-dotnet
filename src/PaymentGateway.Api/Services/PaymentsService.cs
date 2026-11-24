@@ -43,8 +43,8 @@ public class PaymentsService(
         paymentsRepository.Add(payment);
         metrics.PaymentProcessed(payment.Status);
         logger.LogInformation(
-            "Payment {PaymentId} was {PaymentStatus} for {Amount} {Currency}",
-            payment.Id, payment.Status, payment.Amount, payment.Currency);
+            "Payment {PaymentId} for card ending {CardNumberLastFour} was {PaymentStatus} for {Amount} {Currency}",
+            payment.Id, payment.CardNumberLastFour, payment.Status, payment.Amount, payment.Currency);
 
         return payment;
     }

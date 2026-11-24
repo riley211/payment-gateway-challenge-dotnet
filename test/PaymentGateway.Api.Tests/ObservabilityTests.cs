@@ -41,6 +41,7 @@ public class ObservabilityTests
 
         Assert.Contains(Logs(), log => log.Level == LogLevel.Information
             && log.Message.Contains(payment!.Id.ToString())
+            && log.Message.Contains("card ending 8877")
             && log.Message.Contains("Authorized"));
     }
 
