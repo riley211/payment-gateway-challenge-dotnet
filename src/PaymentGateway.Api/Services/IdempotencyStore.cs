@@ -8,7 +8,7 @@ public class IdempotencyStore
 {
     private readonly ConcurrentDictionary<string, Entry> _entries = new();
 
-    public Task<PostPaymentResponse> ProcessOnceAsync(
+    public async Task<PostPaymentResponse> ProcessOnceAsync(
         string idempotencyKey,
         string requestFingerprint,
         Func<Task<PostPaymentResponse>> processPayment)
@@ -23,7 +23,15 @@ public class IdempotencyStore
             throw new IdempotencyKeyReusedException();
         }
 
-        return entry.Payment.Value;
+        try
+        {
+            return await entry.Payment.Value;
+        }
+        catch
+        {
+            _entries.TryRemove(KeyValuePair.Create(idempotencyKey, entry));
+            throw;
+        }
     }
 
     private record Entry(string RequestFingerprint, Lazy<Task<PostPaymentResponse>> Payment);

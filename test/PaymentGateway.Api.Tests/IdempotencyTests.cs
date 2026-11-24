@@ -71,6 +71,21 @@ public class IdempotencyTests
     }
 
     [Fact]
+    public async Task AllowsARetryAfterTheBankFails()
+    {
+        _bank.IsUnavailable = true;
+        var failed = await PostAsync(Payment(amount: 1050), "order-123");
+
+        _bank.IsUnavailable = false;
+        var retried = await PostAsync(Payment(amount: 1050), "order-123");
+
+        Assert.Equal(HttpStatusCode.BadGateway, failed.StatusCode);
+        Assert.Equal(HttpStatusCode.Created, retried.StatusCode);
+        Assert.Equal(2, _bank.Requests.Count);
+        Assert.Single(_repository.Payments);
+    }
+
+    [Fact]
     public async Task ProcessesEachKeySeparately()
     {
         var first = await PostAsync(Payment(amount: 1050), "order-123");
