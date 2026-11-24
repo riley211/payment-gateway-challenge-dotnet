@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 using PaymentGateway.Api.Controllers;
+using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Models.Responses;
 using PaymentGateway.Api.Services;
 
@@ -44,6 +45,37 @@ public class PaymentsControllerTests
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(paymentResponse);
         Assert.Equal("0123", paymentResponse?.CardNumberLastFour);
+    }
+
+    [Fact]
+    public async Task ReturnsTheStatusAsText()
+    {
+        // Arrange
+        var payment = new PostPaymentResponse
+        {
+            Id = Guid.NewGuid(),
+            Status = PaymentStatus.Declined,
+            ExpiryYear = 2030,
+            ExpiryMonth = 12,
+            Amount = 1050,
+            CardNumberLastFour = "8878",
+            Currency = "GBP"
+        };
+
+        var paymentsRepository = new PaymentsRepository();
+        paymentsRepository.Add(payment);
+
+        var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
+        var client = webApplicationFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services => ((ServiceCollection)services)
+                .AddSingleton(paymentsRepository)))
+            .CreateClient();
+
+        // Act
+        var json = await client.GetStringAsync($"/api/Payments/{payment.Id}");
+
+        // Assert
+        Assert.Contains("\"status\":\"Declined\"", json);
     }
 
     [Fact]
