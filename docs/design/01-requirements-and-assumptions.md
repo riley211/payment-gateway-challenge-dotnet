@@ -117,6 +117,10 @@ Request rules are declared with built-in DataAnnotations on the request model. T
 ### 7. Storage
 Storage is the in-memory `PaymentsRepository` from the template. Its lookup returns `null` for an unknown id, which the controller turns into `404`.
 
+Requests are handled in parallel, so `Add` and `Get` take a lock around the shared `List`. Without it, two payments saved at the same moment can corrupt the list. A test adding 10,000 payments in parallel lost most of them before the lock was added.
+
+A queue wouldn't be the right fix. The problem is concurrent access to an unsafe collection, and that happens whatever the API style. In production, the database handles concurrent writes. A queue is there for durability and load, not thread-safety.
+
 ### 8. The template's structure is kept
 The template's layout is kept so the changes are easy to review against the original:
 - `PaymentsRepository` stays in `Services/` and stores the response model.
@@ -141,7 +145,7 @@ In production the structure would change:
 |---|---|
 | The repository stores `PostPaymentResponse`, the API contract | A domain model is stored and mapped to responses, so storage and the API can change independently |
 | A concrete `PaymentsRepository` class | An interface such as `IPaymentsRepository`, with async methods, so a real database can replace it without changing callers |
-| A `List<T>` with no locking. Concurrent writes from parallel requests aren't safe. | A database, or a `ConcurrentDictionary` for an in-memory store |
+| A `List<T>` behind a lock, searched one item at a time | A database with an index on the payment id |
 | The bank's `authorization_code` isn't stored, because the stored model is the response contract and has no field for it | Stored with the payment for reconciliation with the bank, but never returned to the merchant |
 | `GetPaymentResponse` and `PostPaymentResponse` have identical fields | Kept as two types so each contract can change on its own |
 
