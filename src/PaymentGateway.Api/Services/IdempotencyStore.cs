@@ -34,5 +34,5 @@ public class IdempotencyStore
         }
     }
 
-    private record Entry(string RequestFingerprint, Lazy<Task<PostPaymentResponse>> Payment);
+    private sealed record Entry(string RequestFingerprint, Lazy<Task<PostPaymentResponse>> Payment);
 }

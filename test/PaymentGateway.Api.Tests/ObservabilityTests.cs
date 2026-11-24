@@ -113,5 +113,5 @@ public class ObservabilityTests
 
     private static PaymentRequest Payment() => new(CardNumber, 4, 2030, "GBP", 1050, Cvv);
 
-    private record PaymentRequest(string CardNumber, int ExpiryMonth, int ExpiryYear, string Currency, int Amount, string Cvv);
+    private sealed record PaymentRequest(string CardNumber, int ExpiryMonth, int ExpiryYear, string Currency, int Amount, string Cvv);
 }
