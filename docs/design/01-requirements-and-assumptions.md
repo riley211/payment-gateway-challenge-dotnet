@@ -61,32 +61,23 @@ These aren't in the brief. They are the properties a payment system needs, so we
 ## Design as built
 
 ```mermaid
-sequenceDiagram
-    participant M as Merchant
-    participant G as Payment Gateway
-    participant R as Payments repository (in-memory)
-    participant B as Acquiring bank (simulator)
-
-    M->>G: POST /api/payments (+ Idempotency-Key)
-    alt request invalid
-        G-->>M: 400 Rejected (bank not called, nothing stored)
-    else key already seen with the same request
-        G-->>M: original result (bank not called again)
-    else new request
-        G->>B: POST /payments
-        alt bank responds
-            B-->>G: authorized true / false
-            G->>R: save payment (last four digits only)
-            G-->>M: 201 Created, Authorized / Declined
-        else bank unavailable (503 / timeout)
-            G-->>M: 502 Bad Gateway (nothing stored, safe to retry)
-        end
-    end
-
-    M->>G: GET /api/payments/{id}
-    G->>R: find payment
-    G-->>M: 200 OK, or 404 Not Found
+flowchart LR
+    Merchant -->|POST / GET| Gateway[Payment Gateway]
+    Gateway -->|POST /payments| Bank[Bank simulator]
+    Gateway --> Store[(In-memory store)]
 ```
+
+What happens to a `POST /api/payments`:
+
+| Situation | Bank called? | Stored? | Response |
+|---|---|---|---|
+| Request is invalid | No | No | `400` Rejected |
+| Same `Idempotency-Key` and body as an earlier request | No | — | The original response |
+| Bank authorises | Yes | Yes | `201` Authorized |
+| Bank declines | Yes | Yes | `201` Declined |
+| Bank unavailable (503 or timeout) | Yes | No | `502` |
+
+`GET /api/payments/{id}` returns `200` with the payment, or `404` if the id is unknown.
 
 ## Key design decisions
 
@@ -155,19 +146,18 @@ At production scale the bank call moves off the request path. The merchant gets 
 
 ```mermaid
 flowchart LR
-    M[Merchant] -->|POST + Idempotency-Key| API[Gateway API]
-    API -->|payment + outbox row, one transaction| DB[(Payments DB)]
-    API -->|202 Accepted, status Pending| M
-    DB -->|outbox relay| Q[[Queue]]
-    Q --> W[Payment worker]
-    W -->|request with bank idempotency key| BANK[Acquiring bank]
-    W -->|Authorized / Declined| DB
-    W -->|webhook| M
-    REC[Reconciliation job] -->|unknown outcomes| BANK
-    REC --> DB
+    Merchant -->|POST| API[Gateway API]
+    API -->|save as Pending| DB[(Database)]
+    DB --> Queue[[Queue]]
+    Queue --> Worker
+    Worker --> Bank
+    Worker -->|Authorized / Declined| DB
 ```
 
-- **The outbox** means a payment is never accepted without also being queued. Both are written in the same transaction.
-- **The queue and workers** absorb spikes and slow banks, and allow safe retries with backoff.
-- **Bank-side idempotency keys** make the worker's retries safe.
-- **Reconciliation** settles payments whose outcome is unknown after a timeout.
+1. The API saves the payment as `Pending` and returns `202 Accepted` straight away.
+2. A worker takes it from the queue, calls the bank and records the outcome. The merchant then gets the outcome by webhook or by polling `GET`.
+
+This needs three supporting pieces:
+- **An outbox:** the payment and its queue message are written in one database transaction, so a payment can't be saved without also being queued.
+- **Bank-side idempotency keys**, so the worker can retry safely.
+- **A reconciliation job** for payments whose outcome is unknown after a timeout.
