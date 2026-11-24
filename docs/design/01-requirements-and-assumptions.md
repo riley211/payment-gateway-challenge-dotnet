@@ -151,12 +151,12 @@ The upgrade also turned on NuGet's check of indirect dependencies for known vuln
 
 | Area | Assumption |
 |---|---|
-| Rejected response | `400 Bad Request` with a `ValidationProblemDetails` body listing each failed field, plus `"status": "Rejected"`. Nothing is stored, so a rejected payment has no id and can't be retrieved. |
+| Rejected response | `400 Bad Request` with a `ValidationProblemDetails` body listing each failed field, plus `"paymentStatus": "Rejected"`. It isn't called `status`, because ProblemDetails already uses `status` for the HTTP status code. Nothing is stored, so a rejected payment has no id and can't be retrieved. |
 | Currencies | `GBP`, `USD` and `EUR`, upper-case only. The brief asks for no more than three codes. |
 | Amount | Must be greater than zero. A zero or negative payment has no meaning. |
 | Expiry | A card is valid until the end of its expiry month, so the current month is accepted. "Now" is UTC and comes from an injected `TimeProvider`, so tests can control it. |
 | Expiry year | A four-digit year, for example `2027`. |
-| Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. Sending one as a string (for example `"01"`) is invalid. Card number and CVV are strings. |
+| Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. ASP.NET's default JSON settings also accept a numeric string such as `"04"`, which is kept because the value is still validated. A non-numeric value such as `"April"` is rejected. Card number and CVV are strings. |
 | Bank failure | `503`, a timeout or an unexpected response all map to `502`. No payment is stored. |
 | Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process. |
 | Retrieving | An unknown id returns `404`. |

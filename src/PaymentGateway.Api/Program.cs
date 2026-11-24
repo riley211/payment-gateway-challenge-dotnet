@@ -1,10 +1,23 @@
+using Microsoft.AspNetCore.Mvc;
+
+using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder.Services.AddControllers()
+    .ConfigureApiBehaviorOptions(options =>
+    {
+        var validationProblem = options.InvalidModelStateResponseFactory;
+        options.InvalidModelStateResponseFactory = context =>
+        {
+            var result = (ObjectResult)validationProblem(context);
+            ((ProblemDetails)result.Value!).Extensions["paymentStatus"] = PaymentStatus.Rejected;
+            return result;
+        };
+    });
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();

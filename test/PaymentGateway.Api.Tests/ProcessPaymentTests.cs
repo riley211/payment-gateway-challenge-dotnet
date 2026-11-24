@@ -1,8 +1,10 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
 
 using PaymentGateway.Api.Controllers;
 using PaymentGateway.Api.Models;
@@ -25,6 +27,7 @@ public class ProcessPaymentTests
             {
                 services.AddSingleton(_repository);
                 services.AddSingleton<IAcquiringBank>(_bank);
+                services.AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 11, 24, 12, 0, 0, TimeSpan.Zero)));
             }))
             .CreateClient();
     }
@@ -93,6 +96,70 @@ public class ProcessPaymentTests
 
         Assert.Equal(HttpStatusCode.BadGateway, response.StatusCode);
         Assert.Equal("application/problem+json", response.Content.Headers.ContentType!.MediaType);
+        Assert.Empty(_repository.Payments);
+    }
+
+    [Fact]
+    public async Task RejectsAnInvalidPaymentWithoutCallingTheBank()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Payments", new
+        {
+            cardNumber = "1234",
+            expiryMonth = 4,
+            expiryYear = 2030,
+            currency = "JPY",
+            amount = 1050,
+            cvv = "123"
+        });
+
+        await AssertRejected(response, "CardNumber", "Currency");
+    }
+
+    [Fact]
+    public async Task RejectsAnExpiredCard()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Payments", new
+        {
+            cardNumber = "2222405343248877",
+            expiryMonth = 10,
+            expiryYear = 2026,
+            currency = "GBP",
+            amount = 1050,
+            cvv = "123"
+        });
+
+        await AssertRejected(response, "ExpiryMonth", "ExpiryYear");
+    }
+
+    [Fact]
+    public async Task RejectsAFieldThatIsNotANumber()
+    {
+        var response = await _client.PostAsJsonAsync("/api/Payments", new
+        {
+            cardNumber = "2222405343248877",
+            expiryMonth = "April",
+            expiryYear = 2030,
+            currency = "GBP",
+            amount = 1050,
+            cvv = "123"
+        });
+
+        await AssertRejected(response, "$.expiryMonth");
+    }
+
+    private async Task AssertRejected(HttpResponseMessage response, params string[] invalidFields)
+    {
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+
+        using var problem = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        Assert.Equal("Rejected", problem.RootElement.GetProperty("paymentStatus").GetString());
+        var errors = problem.RootElement.GetProperty("errors");
+        foreach (var field in invalidFields)
+        {
+            Assert.True(errors.TryGetProperty(field, out _), $"Expected an error for {field} in {errors}");
+        }
+
+        Assert.Empty(_bank.Requests);
         Assert.Empty(_repository.Payments);
     }
 
