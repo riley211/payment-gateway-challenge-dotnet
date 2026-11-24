@@ -1,5 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 
+using OpenTelemetry;
+using OpenTelemetry.Logs;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+
 using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Models.Requests;
 using PaymentGateway.Api.Services;
@@ -29,6 +35,22 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddProblemDetails();
 builder.Services.AddHealthChecks();
+
+var openTelemetry = builder.Services.AddOpenTelemetry()
+    .ConfigureResource(resource => resource.AddService("payment-gateway"))
+    .WithTracing(tracing => tracing
+        .AddAspNetCoreInstrumentation(options => options.Filter = context => context.Request.Path != "/health")
+        .AddHttpClientInstrumentation())
+    .WithMetrics(metrics => metrics
+        .AddAspNetCoreInstrumentation()
+        .AddHttpClientInstrumentation()
+        .AddMeter(PaymentMetrics.MeterName))
+    .WithLogging();
+
+if (builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is not null)
+{
+    openTelemetry.UseOtlpExporter();
+}
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PaymentMetrics>();
