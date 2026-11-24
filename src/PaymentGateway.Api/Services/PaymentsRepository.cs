@@ -1,4 +1,4 @@
-﻿using PaymentGateway.Api.Models.Responses;
+﻿using PaymentGateway.Api.Domain;
 
 namespace PaymentGateway.Api.Services;
 
@@ -6,9 +6,9 @@ public class PaymentsRepository : IPaymentsRepository
 {
     private readonly Lock _lock = new();
 
-    public List<PostPaymentResponse> Payments = new();
+    public List<Payment> Payments = new();
 
-    public Task AddAsync(PostPaymentResponse payment)
+    public Task AddAsync(Payment payment)
     {
         lock (_lock)
         {
@@ -18,7 +18,7 @@ public class PaymentsRepository : IPaymentsRepository
         return Task.CompletedTask;
     }
 
-    public Task<PostPaymentResponse?> GetAsync(Guid id)
+    public Task<Payment?> GetAsync(Guid id)
     {
         lock (_lock)
         {

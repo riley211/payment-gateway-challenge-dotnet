@@ -5,6 +5,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 using PaymentGateway.Api.Controllers;
+using PaymentGateway.Api.Domain;
 using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Models.Responses;
 using PaymentGateway.Api.Services;
@@ -19,15 +20,16 @@ public class PaymentsControllerTests
     public async Task RetrievesAPaymentSuccessfully()
     {
         // Arrange
-        var payment = new PostPaymentResponse
-        {
-            Id = Guid.NewGuid(),
-            ExpiryYear = _random.Next(2027, 2031),
-            ExpiryMonth = _random.Next(1, 13),
-            Amount = _random.Next(1, 10000),
-            CardNumberLastFour = "0123",
-            Currency = "GBP"
-        };
+        var payment = new Payment(
+            Id: Guid.NewGuid(),
+            Status: PaymentStatus.Authorized,
+            CardNumberLastFour: "0123",
+            ExpiryMonth: _random.Next(1, 13),
+            ExpiryYear: _random.Next(2027, 2031),
+            Currency: "GBP",
+            Amount: _random.Next(1, 10000),
+            AuthorizationCode: "0bb07405-6d44-4b50-a14f-7ae0beff13ad",
+            CreatedAt: DateTimeOffset.UtcNow);
 
         var paymentsRepository = new PaymentsRepository();
         await paymentsRepository.AddAsync(payment);
@@ -40,7 +42,7 @@ public class PaymentsControllerTests
 
         // Act
         var response = await client.GetAsync($"/api/Payments/{payment.Id}");
-        var paymentResponse = await response.Content.ReadFromJsonAsync<PostPaymentResponse>();
+        var paymentResponse = await response.Content.ReadFromJsonAsync<GetPaymentResponse>();
 
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -52,16 +54,16 @@ public class PaymentsControllerTests
     public async Task ReturnsTheStatusAsText()
     {
         // Arrange
-        var payment = new PostPaymentResponse
-        {
-            Id = Guid.NewGuid(),
-            Status = PaymentStatus.Declined,
-            ExpiryYear = 2030,
-            ExpiryMonth = 12,
-            Amount = 1050,
-            CardNumberLastFour = "8878",
-            Currency = "GBP"
-        };
+        var payment = new Payment(
+            Id: Guid.NewGuid(),
+            Status: PaymentStatus.Declined,
+            CardNumberLastFour: "8878",
+            ExpiryMonth: 12,
+            ExpiryYear: 2030,
+            Currency: "GBP",
+            Amount: 1050,
+            AuthorizationCode: null,
+            CreatedAt: DateTimeOffset.UtcNow);
 
         var paymentsRepository = new PaymentsRepository();
         await paymentsRepository.AddAsync(payment);

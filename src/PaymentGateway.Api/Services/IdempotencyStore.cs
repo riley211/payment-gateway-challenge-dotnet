@@ -1,6 +1,6 @@
 using System.Collections.Concurrent;
 
-using PaymentGateway.Api.Models.Responses;
+using PaymentGateway.Api.Domain;
 
 namespace PaymentGateway.Api.Services;
 
@@ -8,15 +8,15 @@ public class IdempotencyStore
 {
     private readonly ConcurrentDictionary<string, Entry> _entries = new();
 
-    public async Task<PostPaymentResponse> ProcessOnceAsync(
+    public async Task<Payment> ProcessOnceAsync(
         string idempotencyKey,
         string requestFingerprint,
-        Func<Task<PostPaymentResponse>> processPayment)
+        Func<Task<Payment>> processPayment)
     {
         // GetOrAdd can build more than one Entry under a race, but only the stored one is ever started.
         var entry = _entries.GetOrAdd(
             idempotencyKey,
-            _ => new Entry(requestFingerprint, new Lazy<Task<PostPaymentResponse>>(processPayment)));
+            _ => new Entry(requestFingerprint, new Lazy<Task<Payment>>(processPayment)));
 
         if (entry.RequestFingerprint != requestFingerprint)
         {
@@ -34,5 +34,5 @@ public class IdempotencyStore
         }
     }
 
-    private sealed record Entry(string RequestFingerprint, Lazy<Task<PostPaymentResponse>> Payment);
+    private sealed record Entry(string RequestFingerprint, Lazy<Task<Payment>> Payment);
 }

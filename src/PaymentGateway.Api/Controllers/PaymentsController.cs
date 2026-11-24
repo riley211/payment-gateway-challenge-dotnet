@@ -37,7 +37,7 @@ public class PaymentsController : Controller
         {
             var payment = await _paymentsService.ProcessPaymentAsync(request, idempotencyKey);
 
-            return CreatedAtRoute("GetPayment", new { id = payment.Id }, payment);
+            return CreatedAtRoute("GetPayment", new { id = payment.Id }, PostPaymentResponse.From(payment));
         }
         catch (BankUnavailableException)
         {
@@ -58,12 +58,12 @@ public class PaymentsController : Controller
     }
 
     [HttpGet("{id:guid}", Name = "GetPayment")]
-    [ProducesResponseType<PostPaymentResponse>(StatusCodes.Status200OK)]
+    [ProducesResponseType<GetPaymentResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]
-    public async Task<ActionResult<PostPaymentResponse?>> GetPaymentAsync(Guid id)
+    public async Task<ActionResult<GetPaymentResponse?>> GetPaymentAsync(Guid id)
     {
         var payment = await _paymentsRepository.GetAsync(id);
 
-        return payment is null ? NotFound() : Ok(payment);
+        return payment is null ? NotFound() : Ok(GetPaymentResponse.From(payment));
     }
 }

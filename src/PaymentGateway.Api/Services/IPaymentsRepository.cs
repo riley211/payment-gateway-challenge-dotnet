@@ -1,10 +1,10 @@
-using PaymentGateway.Api.Models.Responses;
+using PaymentGateway.Api.Domain;
 
 namespace PaymentGateway.Api.Services;
 
 public interface IPaymentsRepository
 {
-    Task AddAsync(PostPaymentResponse payment);
+    Task AddAsync(Payment payment);
 
-    Task<PostPaymentResponse?> GetAsync(Guid id);
+    Task<Payment?> GetAsync(Guid id);
 }
