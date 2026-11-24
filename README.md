@@ -175,8 +175,6 @@ In short:
 - **Abuse protection.** Rate limiting per merchant, and request size limits.
 - **Secrets.** Kept in a secrets manager, never in configuration files.
 
-Browser-focused headers such as Content-Security-Policy don't apply: this is a JSON API, and the only HTML (Swagger UI) is served in `Development` only.
-
 ## Production next steps
 
 | Area | Next step |
