@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
 
 using PaymentGateway.Api.Controllers;
+using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Models.Responses;
 using PaymentGateway.Api.Services;
 
@@ -20,10 +21,10 @@ public class PaymentsControllerTests
         var payment = new PostPaymentResponse
         {
             Id = Guid.NewGuid(),
-            ExpiryYear = _random.Next(2023, 2030),
-            ExpiryMonth = _random.Next(1, 12),
+            ExpiryYear = _random.Next(2027, 2031),
+            ExpiryMonth = _random.Next(1, 13),
             Amount = _random.Next(1, 10000),
-            CardNumberLastFour = _random.Next(1111, 9999),
+            CardNumberLastFour = "0123",
             Currency = "GBP"
         };
 
@@ -43,6 +44,38 @@ public class PaymentsControllerTests
         // Assert
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
         Assert.NotNull(paymentResponse);
+        Assert.Equal("0123", paymentResponse?.CardNumberLastFour);
+    }
+
+    [Fact]
+    public async Task ReturnsTheStatusAsText()
+    {
+        // Arrange
+        var payment = new PostPaymentResponse
+        {
+            Id = Guid.NewGuid(),
+            Status = PaymentStatus.Declined,
+            ExpiryYear = 2030,
+            ExpiryMonth = 12,
+            Amount = 1050,
+            CardNumberLastFour = "8878",
+            Currency = "GBP"
+        };
+
+        var paymentsRepository = new PaymentsRepository();
+        paymentsRepository.Add(payment);
+
+        var webApplicationFactory = new WebApplicationFactory<PaymentsController>();
+        var client = webApplicationFactory.WithWebHostBuilder(builder =>
+            builder.ConfigureServices(services => ((ServiceCollection)services)
+                .AddSingleton(paymentsRepository)))
+            .CreateClient();
+
+        // Act
+        var json = await client.GetStringAsync($"/api/Payments/{payment.Id}");
+
+        // Assert
+        Assert.Contains("\"status\":\"Declined\"", json);
     }
 
     [Fact]
