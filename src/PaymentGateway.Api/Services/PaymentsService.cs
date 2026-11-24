@@ -12,6 +12,7 @@ public class PaymentsService(
     IAcquiringBank bank,
     PaymentsRepository paymentsRepository,
     IdempotencyStore idempotencyStore,
+    PaymentMetrics metrics,
     ILogger<PaymentsService> logger)
 {
     public Task<PostPaymentResponse> ProcessPaymentAsync(PostPaymentRequest request, string? idempotencyKey)
@@ -40,6 +41,7 @@ public class PaymentsService(
         };
 
         paymentsRepository.Add(payment);
+        metrics.PaymentProcessed(payment.Status);
         logger.LogInformation(
             "Payment {PaymentId} was {PaymentStatus} for {Amount} {Currency}",
             payment.Id, payment.Status, payment.Amount, payment.Currency);

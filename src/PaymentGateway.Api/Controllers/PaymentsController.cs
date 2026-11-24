@@ -12,15 +12,18 @@ public class PaymentsController : Controller
 {
     private readonly PaymentsRepository _paymentsRepository;
     private readonly PaymentsService _paymentsService;
+    private readonly PaymentMetrics _metrics;
     private readonly ILogger<PaymentsController> _logger;
 
     public PaymentsController(
         PaymentsRepository paymentsRepository,
         PaymentsService paymentsService,
+        PaymentMetrics metrics,
         ILogger<PaymentsController> logger)
     {
         _paymentsRepository = paymentsRepository;
         _paymentsService = paymentsService;
+        _metrics = metrics;
         _logger = logger;
     }
 
@@ -37,6 +40,7 @@ public class PaymentsController : Controller
         }
         catch (BankUnavailableException exception)
         {
+            _metrics.BankUnavailable();
             _logger.LogWarning(exception, "The acquiring bank was unavailable, so the payment was not processed");
 
             return Problem(

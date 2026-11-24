@@ -1,11 +1,15 @@
+using System.Diagnostics.Metrics;
+using System.Net;
 using System.Net.Http.Json;
 
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.Metrics.Testing;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Logging.Testing;
 
 using PaymentGateway.Api.Controllers;
+using PaymentGateway.Api.Models.Bank;
 using PaymentGateway.Api.Models.Responses;
 using PaymentGateway.Api.Services;
 
@@ -64,6 +68,44 @@ public class ObservabilityTests
             Assert.DoesNotContain(CardNumber, everything);
             Assert.DoesNotContain(Cvv, everything);
         });
+    }
+
+    [Fact]
+    public async Task CountsPaymentsByOutcome()
+    {
+        using var payments = new MetricCollector<long>(
+            _factory.Services.GetRequiredService<IMeterFactory>(), PaymentMetrics.MeterName, PaymentMetrics.PaymentsInstrument);
+
+        await _client.PostAsJsonAsync("/api/Payments", Payment());
+        _bank.Response = new BankPaymentResponse(false, "");
+        await _client.PostAsJsonAsync("/api/Payments", Payment());
+        await _client.PostAsJsonAsync("/api/Payments", Payment() with { Currency = "JPY" });
+        _bank.IsUnavailable = true;
+        await _client.PostAsJsonAsync("/api/Payments", Payment());
+
+        Assert.Equal(
+            ["Authorized", "Declined", "Rejected", "BankUnavailable"],
+            payments.GetMeasurementSnapshot().Select(measurement => measurement.Tags["outcome"]));
+    }
+
+    [Fact]
+    public async Task ReportsHealthy()
+    {
+        var response = await _client.GetAsync("/health");
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal("Healthy", await response.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task ReturnsProblemDetailsForAnUnexpectedError()
+    {
+        _bank.UnexpectedError = new InvalidOperationException("Something went wrong in the gateway.");
+
+        var response = await _client.PostAsJsonAsync("/api/Payments", Payment());
+
+        Assert.Equal(HttpStatusCode.InternalServerError, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType!.MediaType);
     }
 
     private IReadOnlyList<FakeLogRecord> Logs() => _factory.Services.GetFakeLogCollector().GetSnapshot();

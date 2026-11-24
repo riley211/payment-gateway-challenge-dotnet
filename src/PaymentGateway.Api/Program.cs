@@ -14,7 +14,9 @@ builder.Services.AddControllers()
         var validationProblem = options.InvalidModelStateResponseFactory;
         options.InvalidModelStateResponseFactory = context =>
         {
-            context.HttpContext.RequestServices.GetRequiredService<ILogger<PostPaymentRequest>>()
+            var services = context.HttpContext.RequestServices;
+            services.GetRequiredService<PaymentMetrics>().PaymentProcessed(PaymentStatus.Rejected);
+            services.GetRequiredService<ILogger<PostPaymentRequest>>()
                 .LogInformation("Payment rejected because of invalid fields: {InvalidFields}", string.Join(", ", context.ModelState.Keys));
 
             var result = (ObjectResult)validationProblem(context);
@@ -25,8 +27,11 @@ builder.Services.AddControllers()
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+builder.Services.AddProblemDetails();
+builder.Services.AddHealthChecks();
 
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<PaymentMetrics>();
 builder.Services.AddSingleton<PaymentsRepository>();
 builder.Services.AddSingleton<IdempotencyStore>();
 builder.Services.AddScoped<PaymentsService>();
@@ -40,6 +45,8 @@ builder.Services.AddHttpClient<IAcquiringBank, BankSimulatorClient>((services, c
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
+app.UseExceptionHandler();
+
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -51,5 +58,6 @@ app.UseHttpsRedirection();
 app.UseAuthorization();
 
 app.MapControllers();
+app.MapHealthChecks("/health");
 
 app.Run();

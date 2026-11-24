@@ -9,6 +9,7 @@ public class FakeAcquiringBank : IAcquiringBank
 {
     public BankPaymentResponse Response { get; set; } = new(true, "0bb07405-6d44-4b50-a14f-7ae0beff13ad");
     public bool IsUnavailable { get; set; }
+    public Exception? UnexpectedError { get; set; }
     public TaskCompletionSource? Gate { get; set; }
     public ConcurrentQueue<BankPaymentRequest> Requests { get; } = new();
 
@@ -19,6 +20,11 @@ public class FakeAcquiringBank : IAcquiringBank
         if (Gate is not null)
         {
             await Gate.Task;
+        }
+
+        if (UnexpectedError is not null)
+        {
+            throw UnexpectedError;
         }
 
         return IsUnavailable
