@@ -24,6 +24,7 @@ builder.Services.AddSwaggerGen();
 
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddSingleton<PaymentsRepository>();
+builder.Services.AddSingleton<IdempotencyStore>();
 builder.Services.AddScoped<PaymentsService>();
 builder.Services.AddHttpClient<IAcquiringBank, BankSimulatorClient>((services, client) =>
 {

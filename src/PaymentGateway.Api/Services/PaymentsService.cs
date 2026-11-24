@@ -5,9 +5,16 @@ using PaymentGateway.Api.Models.Responses;
 
 namespace PaymentGateway.Api.Services;
 
-public class PaymentsService(IAcquiringBank bank, PaymentsRepository paymentsRepository)
+public class PaymentsService(IAcquiringBank bank, PaymentsRepository paymentsRepository, IdempotencyStore idempotencyStore)
 {
-    public async Task<PostPaymentResponse> ProcessPaymentAsync(PostPaymentRequest request)
+    public Task<PostPaymentResponse> ProcessPaymentAsync(PostPaymentRequest request, string? idempotencyKey)
+    {
+        return idempotencyKey is null
+            ? AuthorizeAsync(request)
+            : idempotencyStore.ProcessOnceAsync(idempotencyKey, () => AuthorizeAsync(request));
+    }
+
+    private async Task<PostPaymentResponse> AuthorizeAsync(PostPaymentRequest request)
     {
         var bankResponse = await bank.ProcessPaymentAsync(BankPaymentRequest.From(request));
 
