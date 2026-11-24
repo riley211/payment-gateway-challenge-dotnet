@@ -114,7 +114,11 @@ Request rules are declared with built-in DataAnnotations on the request model. T
 Storage is the in-memory repository from the template, made thread-safe. It sits behind an interface so a real database could replace it without touching the rest of the code.
 
 ### 8. Runtime
-The template targets .NET 8, and we keep it to stay aligned with the exercise. .NET 8 reached end of support on 10 November 2026. Moving to .NET 10 (LTS) would be the first step before any production use.
+The template targeted .NET 8, which reached end of support on 10 November 2026. The solution targets **.NET 10**, the current long-term-support release. No code changes were needed.
+
+The upgrade also turned on NuGet's check of indirect dependencies for known vulnerabilities, which .NET 8 projects don't run by default. It flagged two packages that were in the template, and both were updated:
+- Swashbuckle 6.2.3 (moderate)
+- Newtonsoft.Json 9.0.1, pulled in by the old test SDK (high)
 
 ## Assumptions
 
