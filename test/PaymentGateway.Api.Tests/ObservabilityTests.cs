@@ -15,7 +15,7 @@ using PaymentGateway.Api.Services;
 
 namespace PaymentGateway.Api.Tests;
 
-public class ObservabilityTests
+public sealed class ObservabilityTests : IDisposable
 {
     private const string CardNumber = "2222405343248877";
     private const string Cvv = "4321";
@@ -32,6 +32,8 @@ public class ObservabilityTests
                 .AddSingleton<IAcquiringBank>(_bank)));
         _client = _factory.CreateClient();
     }
+
+    public void Dispose() => _factory.Dispose();
 
     [Fact]
     public async Task LogsTheOutcomeOfAPayment()
@@ -90,6 +92,28 @@ public class ObservabilityTests
     }
 
     [Fact]
+    public async Task CountsABankFailureOnceForConcurrentDuplicates()
+    {
+        using var payments = new MetricCollector<long>(
+            _factory.Services.GetRequiredService<IMeterFactory>(), PaymentMetrics.MeterName, PaymentMetrics.PaymentsInstrument);
+        _bank.IsUnavailable = true;
+        _bank.Gate = new TaskCompletionSource();
+
+        var duplicates = Enumerable.Range(0, 3).Select(_ =>
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/Payments") { Content = JsonContent.Create(Payment()) };
+            request.Headers.Add("Idempotency-Key", "order-123");
+            return _client.SendAsync(request);
+        }).ToList();
+        await Task.Delay(200);
+        _bank.Gate.SetResult();
+        await Task.WhenAll(duplicates);
+
+        Assert.Single(payments.GetMeasurementSnapshot());
+        Assert.Single(Logs(), log => log.Exception is BankUnavailableException);
+    }
+
+    [Fact]
     public async Task ReportsHealthy()
     {
         var response = await _client.GetAsync("/health");
@@ -113,5 +137,5 @@ public class ObservabilityTests
 
     private static PaymentRequest Payment() => new(CardNumber, 4, 2030, "GBP", 1050, Cvv);
 
-    private record PaymentRequest(string CardNumber, int ExpiryMonth, int ExpiryYear, string Currency, int Amount, string Cvv);
+    private sealed record PaymentRequest(string CardNumber, int ExpiryMonth, int ExpiryYear, string Currency, int Amount, string Cvv);
 }

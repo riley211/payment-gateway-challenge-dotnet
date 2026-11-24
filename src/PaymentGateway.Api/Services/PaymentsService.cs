@@ -27,7 +27,17 @@ public class PaymentsService(
 
     private async Task<PostPaymentResponse> AuthorizeAsync(PostPaymentRequest request)
     {
-        var bankResponse = await bank.ProcessPaymentAsync(BankPaymentRequest.From(request));
+        BankPaymentResponse bankResponse;
+        try
+        {
+            bankResponse = await bank.ProcessPaymentAsync(BankPaymentRequest.From(request));
+        }
+        catch (BankUnavailableException exception)
+        {
+            metrics.BankUnavailable();
+            logger.LogWarning(exception, "The acquiring bank was unavailable, so the payment was not processed");
+            throw;
+        }
 
         var payment = new PostPaymentResponse
         {

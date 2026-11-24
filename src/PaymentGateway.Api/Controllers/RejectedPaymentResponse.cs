@@ -29,5 +29,5 @@ public static class RejectedPaymentResponse
     }
 
     private static string FieldName(string modelStateKey) =>
-        JsonNamingPolicy.CamelCase.ConvertName(modelStateKey.StartsWith("$.") ? modelStateKey[2..] : modelStateKey);
+        JsonNamingPolicy.CamelCase.ConvertName(modelStateKey.StartsWith("$.", StringComparison.Ordinal) ? modelStateKey[2..] : modelStateKey);
 }

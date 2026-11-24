@@ -4,18 +4,13 @@ using PaymentGateway.Api.Models;
 
 namespace PaymentGateway.Api.Services;
 
-public class PaymentMetrics
+public class PaymentMetrics(IMeterFactory meterFactory)
 {
     public const string MeterName = "PaymentGateway";
     public const string PaymentsInstrument = "payment_gateway.payments";
 
-    private readonly Counter<long> _payments;
-
-    public PaymentMetrics(IMeterFactory meterFactory)
-    {
-        _payments = meterFactory.Create(MeterName)
-            .CreateCounter<long>(PaymentsInstrument, unit: "{payment}", description: "Payment requests by outcome.");
-    }
+    private readonly Counter<long> _payments = meterFactory.Create(MeterName)
+        .CreateCounter<long>(PaymentsInstrument, unit: "{payment}", description: "Payment requests by outcome.");
 
     public void PaymentProcessed(PaymentStatus status) => Record(status.ToString());
 

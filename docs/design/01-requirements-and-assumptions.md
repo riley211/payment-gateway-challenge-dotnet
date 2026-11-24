@@ -46,7 +46,7 @@ Items are ticked once they are implemented and covered by a test.
 
 ### Implementation considerations
 - [x] Compiles
-- [x] Covered by automated tests: 71 tests, mapped to requirements below
+- [x] Covered by automated tests: 72 tests, mapped to requirements below
 - [x] Simple and maintainable, not over-engineered: one API project, the template's structure kept, framework features before libraries
 - [x] API design and architecture focus on the functional requirements
 
