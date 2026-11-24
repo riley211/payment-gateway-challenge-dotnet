@@ -88,6 +88,7 @@ What happens to a `POST /api/payments`:
 |---|---|---|---|
 | Request is invalid | No | No | `400` Rejected |
 | Same `Idempotency-Key` and body as an earlier request | No | — | The original response |
+| Same `Idempotency-Key`, different body | No | No | `422` |
 | Bank authorises | Yes | Yes | `201` Authorized |
 | Bank declines | Yes | Yes | `201` Declined |
 | Bank unavailable (503 or timeout) | Yes | No | `502` |
@@ -179,7 +180,7 @@ The upgrade also turned on NuGet's check of indirect dependencies for known vuln
 | Currencies | `GBP`, `USD` and `EUR`, upper-case only. The brief asks for no more than three codes. |
 | Amount | Must be greater than zero. A zero or negative payment has no meaning. |
 | Expiry | A card is valid until the end of its expiry month, so the current month is accepted. "Now" is UTC and comes from an injected `TimeProvider`, so tests can control it. |
-| Expiry year | A four-digit year, for example `2027`. |
+| Expiry year | A four-digit year, for example `2027`. A two-digit year such as `27` is read as the year 27 and rejected as expired. No upper limit is enforced; the brief only requires the date to be in the future. |
 | Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. ASP.NET's default JSON settings also accept a numeric string such as `"04"`, which is kept because the value is still validated. A non-numeric value such as `"April"` is rejected. Card number and CVV are strings. |
 | Bank failure | `503`, a timeout or an unexpected response all map to `502`. No payment is stored. |
 | Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process, shared by all merchants, and never expire. See document 02 for the production approach. |
