@@ -2,7 +2,7 @@
 
 namespace PaymentGateway.Api.Models.Requests;
 
-public class PostPaymentRequest
+public class PostPaymentRequest : IValidatableObject
 {
     [Required]
     [StringLength(19, MinimumLength = 14)]
@@ -28,4 +28,14 @@ public class PostPaymentRequest
     [StringLength(4, MinimumLength = 3)]
     [RegularExpression("^[0-9]+$", ErrorMessage = "The Cvv field must contain only digits.")]
     public string? Cvv { get; set; }
+
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        var today = (validationContext.GetService<TimeProvider>() ?? TimeProvider.System).GetUtcNow();
+
+        if (ExpiryYear < today.Year || (ExpiryYear == today.Year && ExpiryMonth < today.Month))
+        {
+            yield return new ValidationResult("The card has expired.", [nameof(ExpiryMonth), nameof(ExpiryYear)]);
+        }
+    }
 }

@@ -1,5 +1,8 @@
 using System.ComponentModel.DataAnnotations;
 
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Time.Testing;
+
 using PaymentGateway.Api.Models.Requests;
 
 namespace PaymentGateway.Api.Tests;
@@ -57,6 +60,31 @@ public class PostPaymentRequestValidationTests
         request.ExpiryYear = null;
 
         Assert.Equal([nameof(PostPaymentRequest.ExpiryYear)], InvalidFields(request));
+    }
+
+    [Theory]
+    [InlineData(11, 2026)]
+    [InlineData(12, 2026)]
+    [InlineData(1, 2027)]
+    public void AcceptsACardThatExpiresThisMonthOrLater(int expiryMonth, int expiryYear)
+    {
+        var request = ValidRequest();
+        request.ExpiryMonth = expiryMonth;
+        request.ExpiryYear = expiryYear;
+
+        Assert.Empty(InvalidFields(request));
+    }
+
+    [Theory]
+    [InlineData(10, 2026)]
+    [InlineData(12, 2025)]
+    public void RejectsAnExpiredCard(int expiryMonth, int expiryYear)
+    {
+        var request = ValidRequest();
+        request.ExpiryMonth = expiryMonth;
+        request.ExpiryYear = expiryYear;
+
+        Assert.Equal([nameof(PostPaymentRequest.ExpiryMonth), nameof(PostPaymentRequest.ExpiryYear)], InvalidFields(request));
     }
 
     [Theory]
@@ -133,8 +161,11 @@ public class PostPaymentRequestValidationTests
 
     private static List<string> InvalidFields(PostPaymentRequest request)
     {
+        var clock = new FakeTimeProvider(new DateTimeOffset(2026, 11, 24, 12, 0, 0, TimeSpan.Zero));
+        var services = new ServiceCollection().AddSingleton<TimeProvider>(clock).BuildServiceProvider();
+
         var results = new List<ValidationResult>();
-        Validator.TryValidateObject(request, new ValidationContext(request), results, validateAllProperties: true);
+        Validator.TryValidateObject(request, new ValidationContext(request, services, null), results, validateAllProperties: true);
 
         return results.SelectMany(result => result.MemberNames).Distinct().ToList();
     }
