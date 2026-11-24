@@ -59,6 +59,18 @@ public class IdempotencyTests
     }
 
     [Fact]
+    public async Task RejectsAKeyReusedForADifferentPayment()
+    {
+        await PostAsync(Payment(amount: 1050), "order-123");
+        var reused = await PostAsync(Payment(amount: 9999), "order-123");
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, reused.StatusCode);
+        Assert.Equal("application/problem+json", reused.Content.Headers.ContentType!.MediaType);
+        Assert.Single(_bank.Requests);
+        Assert.Single(_repository.Payments);
+    }
+
+    [Fact]
     public async Task ProcessesEachKeySeparately()
     {
         var first = await PostAsync(Payment(amount: 1050), "order-123");

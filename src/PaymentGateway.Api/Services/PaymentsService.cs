@@ -1,3 +1,6 @@
+using System.Security.Cryptography;
+using System.Text.Json;
+
 using PaymentGateway.Api.Models;
 using PaymentGateway.Api.Models.Bank;
 using PaymentGateway.Api.Models.Requests;
@@ -11,8 +14,11 @@ public class PaymentsService(IAcquiringBank bank, PaymentsRepository paymentsRep
     {
         return idempotencyKey is null
             ? AuthorizeAsync(request)
-            : idempotencyStore.ProcessOnceAsync(idempotencyKey, () => AuthorizeAsync(request));
+            : idempotencyStore.ProcessOnceAsync(idempotencyKey, Fingerprint(request), () => AuthorizeAsync(request));
     }
+
+    private static string Fingerprint(PostPaymentRequest request) =>
+        Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(request)));
 
     private async Task<PostPaymentResponse> AuthorizeAsync(PostPaymentRequest request)
     {

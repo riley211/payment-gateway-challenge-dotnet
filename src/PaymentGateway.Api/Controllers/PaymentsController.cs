@@ -37,6 +37,13 @@ public class PaymentsController : Controller
                 detail: "The payment could not be processed.",
                 statusCode: StatusCodes.Status502BadGateway);
         }
+        catch (IdempotencyKeyReusedException exception)
+        {
+            return Problem(
+                title: "The Idempotency-Key has already been used.",
+                detail: exception.Message,
+                statusCode: StatusCodes.Status422UnprocessableEntity);
+        }
     }
 
     [HttpGet("{id:guid}", Name = "GetPayment")]
