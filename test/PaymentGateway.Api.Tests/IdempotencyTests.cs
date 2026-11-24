@@ -41,6 +41,24 @@ public class IdempotencyTests
     }
 
     [Fact]
+    public async Task CallsTheBankOnceForConcurrentDuplicates()
+    {
+        _bank.Gate = new TaskCompletionSource();
+
+        var duplicates = Enumerable.Range(0, 5)
+            .Select(_ => PostAsync(Payment(amount: 1050), "order-123"))
+            .ToList();
+        await Task.Delay(200);
+        _bank.Gate.SetResult();
+        var responses = await Task.WhenAll(duplicates);
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.Created, response.StatusCode));
+        var ids = await Task.WhenAll(responses.Select(IdOf));
+        Assert.Single(ids.Distinct());
+        Assert.Single(_bank.Requests);
+    }
+
+    [Fact]
     public async Task ProcessesEachKeySeparately()
     {
         var first = await PostAsync(Payment(amount: 1050), "order-123");

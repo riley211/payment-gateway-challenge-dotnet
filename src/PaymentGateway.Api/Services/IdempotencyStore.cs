@@ -6,18 +6,13 @@ namespace PaymentGateway.Api.Services;
 
 public class IdempotencyStore
 {
-    private readonly ConcurrentDictionary<string, PostPaymentResponse> _payments = new();
+    private readonly ConcurrentDictionary<string, Lazy<Task<PostPaymentResponse>>> _payments = new();
 
-    public async Task<PostPaymentResponse> ProcessOnceAsync(string idempotencyKey, Func<Task<PostPaymentResponse>> processPayment)
+    public Task<PostPaymentResponse> ProcessOnceAsync(string idempotencyKey, Func<Task<PostPaymentResponse>> processPayment)
     {
-        if (_payments.TryGetValue(idempotencyKey, out var existing))
-        {
-            return existing;
-        }
+        // GetOrAdd can build more than one Lazy under a race, but only the stored one is ever started.
+        var payment = _payments.GetOrAdd(idempotencyKey, _ => new Lazy<Task<PostPaymentResponse>>(processPayment));
 
-        var payment = await processPayment();
-        _payments[idempotencyKey] = payment;
-
-        return payment;
+        return payment.Value;
     }
 }
