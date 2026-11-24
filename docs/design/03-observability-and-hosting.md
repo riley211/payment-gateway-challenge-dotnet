@@ -10,9 +10,11 @@ docker compose up --build
 
 | Service | URL | Purpose |
 |---|---|---|
-| Swagger UI (try the API in a browser) | [http://localhost:8090/swagger](http://localhost:8090/swagger) | The gateway API, with a test-card guide and working examples |
+| Payment gateway | http://localhost:8090 | The API: `POST /api/payments`, `GET /api/payments/{id}`, `GET /health` |
 | Aspire Dashboard | [http://localhost:18888](http://localhost:18888) | Traces, metrics and logs from the gateway |
 | Bank simulator | [http://localhost:8080](http://localhost:8080), admin on [http://localhost:2525](http://localhost:2525) | The template's Mountebank simulator, unchanged |
+
+To try the API in a browser, open the gateway's Swagger UI at [http://localhost:8090/swagger](http://localhost:8090/swagger). It's a documentation page the gateway serves in `Development`, not a separate service. It has a test-card guide and example requests that work as they are.
 
 ## Packaging
 
