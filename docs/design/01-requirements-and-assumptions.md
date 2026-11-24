@@ -16,7 +16,7 @@ The gateway is the only component we build. The shopper, the merchant's checkout
 Items are ticked once they are implemented and covered by a test.
 
 ### Processing a payment
-- [ ] A merchant can process a payment and receive one of:
+- [x] A merchant can process a payment and receive one of:
   - **Authorized**: the acquiring bank authorised the payment
   - **Declined**: the acquiring bank declined the payment
   - **Rejected**: the request was invalid, no payment was created, and the bank was not called
@@ -27,16 +27,16 @@ Items are ticked once they are implemented and covered by a test.
 - [x] Currency: required, 3 characters, ISO 4217, validated against no more than 3 currency codes
 - [x] Amount: required, integer, in the minor currency unit (0.01 USD = `1`, 10.50 USD = `1050`)
 - [x] CVV: required, 3–4 characters, numeric only
-- [ ] The response includes: id, status (Authorized / Declined), the last four card digits (never the full number), expiry month, expiry year, currency, amount
+- [x] The response includes: id, status (Authorized / Declined), the last four card digits (never the full number), expiry month, expiry year, currency, amount
 
 ### Retrieving a payment
 - [x] A merchant can retrieve a previous payment by its id
 - [x] The response includes the same fields: id, status, last four card digits, expiry month, expiry year, currency, amount
 
 ### Acquiring bank integration
-- [ ] `POST /payments` on the simulator with `card_number`, `expiry_date` (`MM/YYYY`), `currency`, `amount`, `cvv`
-- [ ] The response fields `authorized` and `authorization_code` are mapped
-- [ ] The simulator's behaviour is handled: odd last digit → authorised, even → declined, `0` → `503`, missing field → `400`
+- [x] `POST /payments` on the simulator with `card_number`, `expiry_date` (`MM/YYYY`), `currency`, `amount`, `cvv`
+- [x] The response fields `authorized` and `authorization_code` are mapped
+- [x] The simulator's behaviour is handled: odd last digit → authorised, even → declined, `0` → `503`, missing field → `400`
 
 ### Storage
 - [x] No real database. The in-memory repository from the template stands in for storage.
@@ -52,9 +52,9 @@ Items are ticked once they are implemented and covered by a test.
 
 ### Additional non-functional requirements
 These aren't in the brief. They are the properties a payment system needs, so we hold ourselves to them.
-- [ ] Asynchronous: non-blocking I/O, async end to end
+- [x] Asynchronous: non-blocking I/O, async end to end
 - [ ] Idempotent: a retried or duplicated request never charges the shopper twice
-- [ ] Production evolution to a queue-based design is documented
+- [x] Production evolution to a queue-based design is documented
 - [ ] Runs in Docker (gateway + bank simulator via docker compose)
 - [ ] Observable: structured logs, health check, traces and metrics
 
@@ -102,6 +102,10 @@ Retrying a failed call is a common resilience pattern, but it is unsafe here. Th
 ### 4. Bank failures return 502 and store nothing
 If the bank returns `503`, times out or responds unexpectedly, the gateway returns `502 Bad Gateway` with a ProblemDetails body. `502` says the problem is upstream of a healthy gateway. No payment is stored, because there is no outcome to record, and the idempotency key is released so the merchant can retry.
 
+The bank client turns every failure into one `BankUnavailableException`: a non-success status, a refused connection, a timeout (configured as `BankSimulator:Timeout`, 10 seconds by default) or an unreadable body. The controller handles that single type.
+
+The merchant disconnecting does **not** cancel the bank call. If it did, the bank might authorise the payment while the gateway threw the answer away. Letting the call finish means the outcome is always recorded. The timeout still bounds how long it can take.
+
 ### 5. Card data handling
 - The full card number and CVV are used only to call the bank. They are **never stored, returned or logged**.
 - The stored payment and every response hold only the last four digits.
@@ -138,6 +142,7 @@ In production the structure would change:
 | The repository stores `PostPaymentResponse`, the API contract | A domain model is stored and mapped to responses, so storage and the API can change independently |
 | A concrete `PaymentsRepository` class | An interface such as `IPaymentsRepository`, with async methods, so a real database can replace it without changing callers |
 | A `List<T>` with no locking. Concurrent writes from parallel requests aren't safe. | A database, or a `ConcurrentDictionary` for an in-memory store |
+| The bank's `authorization_code` isn't stored, because the stored model is the response contract and has no field for it | Stored with the payment for reconciliation with the bank, but never returned to the merchant |
 | `GetPaymentResponse` and `PostPaymentResponse` have identical fields | Kept as two types so each contract can change on its own |
 
 ### 9. Runtime
@@ -151,12 +156,12 @@ The upgrade also turned on NuGet's check of indirect dependencies for known vuln
 
 | Area | Assumption |
 |---|---|
-| Rejected response | `400 Bad Request` with a `ValidationProblemDetails` body listing each failed field, plus `"status": "Rejected"`. Nothing is stored, so a rejected payment has no id and can't be retrieved. |
+| Rejected response | `400 Bad Request` with a `ValidationProblemDetails` body listing each failed field, plus `"paymentStatus": "Rejected"`. It isn't called `status`, because ProblemDetails already uses `status` for the HTTP status code. Nothing is stored, so a rejected payment has no id and can't be retrieved. |
 | Currencies | `GBP`, `USD` and `EUR`, upper-case only. The brief asks for no more than three codes. |
 | Amount | Must be greater than zero. A zero or negative payment has no meaning. |
 | Expiry | A card is valid until the end of its expiry month, so the current month is accepted. "Now" is UTC and comes from an injected `TimeProvider`, so tests can control it. |
 | Expiry year | A four-digit year, for example `2027`. |
-| Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. Sending one as a string (for example `"01"`) is invalid. Card number and CVV are strings. |
+| Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. ASP.NET's default JSON settings also accept a numeric string such as `"04"`, which is kept because the value is still validated. A non-numeric value such as `"April"` is rejected. Card number and CVV are strings. |
 | Bank failure | `503`, a timeout or an unexpected response all map to `502`. No payment is stored. |
 | Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process. |
 | Retrieving | An unknown id returns `404`. |

@@ -1,0 +1,60 @@
+@gateway = https://localhost:7092
+
+### Authorized: the card number ends in an odd digit
+# @name authorized
+POST {{gateway}}/api/payments
+Content-Type: application/json
+
+{
+  "cardNumber": "2222405343248877",
+  "expiryMonth": 4,
+  "expiryYear": 2030,
+  "currency": "GBP",
+  "amount": 1050,
+  "cvv": "123"
+}
+
+### Retrieve the payment created above
+GET {{gateway}}/api/payments/{{authorized.response.body.$.id}}
+
+### Declined: the card number ends in an even digit
+POST {{gateway}}/api/payments
+Content-Type: application/json
+
+{
+  "cardNumber": "2222405343248878",
+  "expiryMonth": 4,
+  "expiryYear": 2030,
+  "currency": "GBP",
+  "amount": 1050,
+  "cvv": "123"
+}
+
+### Bank unavailable: the card number ends in 0, so the simulator returns 503 and the gateway returns 502
+POST {{gateway}}/api/payments
+Content-Type: application/json
+
+{
+  "cardNumber": "2222405343248870",
+  "expiryMonth": 4,
+  "expiryYear": 2030,
+  "currency": "GBP",
+  "amount": 1050,
+  "cvv": "123"
+}
+
+### Rejected: invalid card number, expired card and unsupported currency, so the bank is not called
+POST {{gateway}}/api/payments
+Content-Type: application/json
+
+{
+  "cardNumber": "1234",
+  "expiryMonth": 1,
+  "expiryYear": 2020,
+  "currency": "JPY",
+  "amount": 0,
+  "cvv": "12"
+}
+
+### Unknown payment
+GET {{gateway}}/api/payments/00000000-0000-0000-0000-000000000000
