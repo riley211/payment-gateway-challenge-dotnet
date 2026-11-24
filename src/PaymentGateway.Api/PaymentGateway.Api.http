@@ -17,6 +17,34 @@ Content-Type: application/json
 ### Retrieve the payment created above
 GET {{gateway}}/api/payments/{{authorized.response.body.$.id}}
 
+### Idempotent: send this twice and both responses have the same id, with one bank call
+POST {{gateway}}/api/payments
+Content-Type: application/json
+Idempotency-Key: order-1001
+
+{
+  "cardNumber": "2222405343248877",
+  "expiryMonth": 4,
+  "expiryYear": 2030,
+  "currency": "GBP",
+  "amount": 1050,
+  "cvv": "123"
+}
+
+### Same key, different amount: 422 because the key was used for a different payment
+POST {{gateway}}/api/payments
+Content-Type: application/json
+Idempotency-Key: order-1001
+
+{
+  "cardNumber": "2222405343248877",
+  "expiryMonth": 4,
+  "expiryYear": 2030,
+  "currency": "GBP",
+  "amount": 9999,
+  "cvv": "123"
+}
+
 ### Declined: the card number ends in an even digit
 POST {{gateway}}/api/payments
 Content-Type: application/json
@@ -58,3 +86,6 @@ Content-Type: application/json
 
 ### Unknown payment
 GET {{gateway}}/api/payments/00000000-0000-0000-0000-000000000000
+
+### Simulator: how many payment requests reached the bank (see numberOfRequests)
+GET http://localhost:2525/imposters/8080

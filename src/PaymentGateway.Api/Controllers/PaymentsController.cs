@@ -20,11 +20,13 @@ public class PaymentsController : Controller
     }
 
     [HttpPost]
-    public async Task<ActionResult<PostPaymentResponse>> PostPaymentAsync(PostPaymentRequest request)
+    public async Task<ActionResult<PostPaymentResponse>> PostPaymentAsync(
+        PostPaymentRequest request,
+        [FromHeader(Name = "Idempotency-Key")] string? idempotencyKey)
     {
         try
         {
-            var payment = await _paymentsService.ProcessPaymentAsync(request);
+            var payment = await _paymentsService.ProcessPaymentAsync(request, idempotencyKey);
 
             return CreatedAtRoute("GetPayment", new { id = payment.Id }, payment);
         }
@@ -34,6 +36,13 @@ public class PaymentsController : Controller
                 title: "The acquiring bank is unavailable.",
                 detail: "The payment could not be processed.",
                 statusCode: StatusCodes.Status502BadGateway);
+        }
+        catch (IdempotencyKeyReusedException exception)
+        {
+            return Problem(
+                title: "The Idempotency-Key has already been used.",
+                detail: exception.Message,
+                statusCode: StatusCodes.Status422UnprocessableEntity);
         }
     }
 

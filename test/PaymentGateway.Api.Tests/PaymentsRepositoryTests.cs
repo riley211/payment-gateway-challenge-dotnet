@@ -1,0 +1,30 @@
+using PaymentGateway.Api.Models;
+using PaymentGateway.Api.Models.Responses;
+using PaymentGateway.Api.Services;
+
+namespace PaymentGateway.Api.Tests;
+
+public class PaymentsRepositoryTests
+{
+    [Fact]
+    public void KeepsEveryPaymentAddedConcurrently()
+    {
+        var repository = new PaymentsRepository();
+        var payments = Enumerable.Range(0, 10_000).Select(_ => Payment()).ToList();
+
+        Parallel.ForEach(payments, repository.Add);
+
+        Assert.All(payments, payment => Assert.Same(payment, repository.Get(payment.Id)));
+    }
+
+    private static PostPaymentResponse Payment() => new()
+    {
+        Id = Guid.NewGuid(),
+        Status = PaymentStatus.Authorized,
+        CardNumberLastFour = "8877",
+        ExpiryMonth = 4,
+        ExpiryYear = 2030,
+        Currency = "GBP",
+        Amount = 1050
+    };
+}

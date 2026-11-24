@@ -53,7 +53,7 @@ Items are ticked once they are implemented and covered by a test.
 ### Additional non-functional requirements
 These aren't in the brief. They are the properties a payment system needs, so we hold ourselves to them.
 - [x] Asynchronous: non-blocking I/O, async end to end
-- [ ] Idempotent: a retried or duplicated request never charges the shopper twice
+- [x] Idempotent: a retried or duplicated request never charges the shopper twice. The one exception is a bank timeout, whose outcome is unknown; see document 02.
 - [x] Production evolution to a queue-based design is documented
 - [ ] Runs in Docker (gateway + bank simulator via docker compose)
 - [ ] Observable: structured logs, health check, traces and metrics
@@ -94,7 +94,7 @@ The merchant may send an `Idempotency-Key` header:
 - A repeat with the same key and the same body returns the original result **without calling the bank again**. This also holds if the repeat arrives while the first request is still in flight.
 - A repeat with the same key but a different body returns `422`. The key has already been used for a different payment.
 
-Details are in [02-idempotency-and-failure-handling.md](02-idempotency-and-failure-handling.md) (added with the implementation).
+Details are in [02-idempotency-and-failure-handling.md](02-idempotency-and-failure-handling.md).
 
 ### 3. No automatic retries to the bank
 Retrying a failed call is a common resilience pattern, but it is unsafe here. The simulator's API takes no idempotency key, so the gateway can't tell the bank "this is the same payment as before". A retry after a timeout could create a second authorisation. The gateway fails fast and leaves the retry decision to the merchant, whose idempotency key makes that retry safe on our side.
@@ -116,6 +116,10 @@ Request rules are declared with built-in DataAnnotations on the request model. T
 
 ### 7. Storage
 Storage is the in-memory `PaymentsRepository` from the template. Its lookup returns `null` for an unknown id, which the controller turns into `404`.
+
+Requests are handled in parallel, so `Add` and `Get` take a lock around the shared `List`. Without it, two payments saved at the same moment can corrupt the list. A test adding 10,000 payments in parallel lost most of them before the lock was added.
+
+A queue wouldn't be the right fix. The problem is concurrent access to an unsafe collection, and that happens whatever the API style. In production, the database handles concurrent writes. A queue is there for durability and load, not thread-safety.
 
 ### 8. The template's structure is kept
 The template's layout is kept so the changes are easy to review against the original:
@@ -141,7 +145,7 @@ In production the structure would change:
 |---|---|
 | The repository stores `PostPaymentResponse`, the API contract | A domain model is stored and mapped to responses, so storage and the API can change independently |
 | A concrete `PaymentsRepository` class | An interface such as `IPaymentsRepository`, with async methods, so a real database can replace it without changing callers |
-| A `List<T>` with no locking. Concurrent writes from parallel requests aren't safe. | A database, or a `ConcurrentDictionary` for an in-memory store |
+| A `List<T>` behind a lock, searched one item at a time | A database with an index on the payment id |
 | The bank's `authorization_code` isn't stored, because the stored model is the response contract and has no field for it | Stored with the payment for reconciliation with the bank, but never returned to the merchant |
 | `GetPaymentResponse` and `PostPaymentResponse` have identical fields | Kept as two types so each contract can change on its own |
 
@@ -163,7 +167,7 @@ The upgrade also turned on NuGet's check of indirect dependencies for known vuln
 | Expiry year | A four-digit year, for example `2027`. |
 | Field types | `expiryMonth`, `expiryYear` and `amount` are JSON numbers. ASP.NET's default JSON settings also accept a numeric string such as `"04"`, which is kept because the value is still validated. A non-numeric value such as `"April"` is rejected. Card number and CVV are strings. |
 | Bank failure | `503`, a timeout or an unexpected response all map to `502`. No payment is stored. |
-| Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process. |
+| Idempotency-Key | Optional. Without it a request is always processed as new. Keys are held in memory for the lifetime of the process, shared by all merchants, and never expire. See document 02 for the production approach. |
 | Retrieving | An unknown id returns `404`. |
 | Authentication | Out of scope. All callers are treated as one merchant. |
 
